@@ -19,5 +19,7 @@
     <string name="quality_high">Quality: High</string>
     <string name="quality_medium">Quality: Medium</string>
     <string name="quality_low">Quality: Low</string>
+    <string name="transition_smooth">Transition: Smooth</string>
+    <string name="transition_instant">Transition: Instant</string>
     <string name="permissions_rationale">MilkDrop needs microphone and storage access to capture audio and load presets. Grant them to continue.</string>
 </resources>

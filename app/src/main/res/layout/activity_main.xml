@@ -115,6 +115,14 @@
                 android:layout_weight="1"
                 android:text="@string/quality_high" />
 
+            <Button
+                android:id="@+id/btnTransition"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/transition_smooth" />
+
         </LinearLayout>
 
     </LinearLayout>

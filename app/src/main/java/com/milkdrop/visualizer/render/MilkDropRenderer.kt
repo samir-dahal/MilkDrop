@@ -69,12 +69,12 @@ class MilkDropRenderer(
         }
     }
 
-    fun playNext() {
-        ProjectMBridge.nativePlayNext(handle, false)
+    fun playNext(hardCut: Boolean) {
+        ProjectMBridge.nativePlayNext(handle, hardCut)
     }
 
-    fun playPrevious() {
-        ProjectMBridge.nativePlayPrevious(handle, false)
+    fun playPrevious(hardCut: Boolean) {
+        ProjectMBridge.nativePlayPrevious(handle, hardCut)
     }
 
     fun setShuffle(enabled: Boolean) {
@@ -83,8 +83,8 @@ class MilkDropRenderer(
 
     fun playlistPosition(): Int = ProjectMBridge.nativeGetPlaylistPosition(handle)
 
-    fun jumpToPreset(position: Int) {
-        ProjectMBridge.nativeSetPlaylistPosition(handle, position, false)
+    fun jumpToPreset(position: Int, hardCut: Boolean) {
+        ProjectMBridge.nativeSetPlaylistPosition(handle, position, hardCut)
     }
 
     fun playlistItems(): Array<String> = ProjectMBridge.nativeGetPlaylistItems(handle)
@@ -106,7 +106,7 @@ class MilkDropRenderer(
 
     private companion object {
         const val DEFAULT_PRESET_DURATION_SECONDS = 15.0
-        const val SOFT_CUT_DURATION_SECONDS = 1.5
+        const val SOFT_CUT_DURATION_SECONDS = 1.0
         const val DEFAULT_TARGET_FPS = 30
     }
 }

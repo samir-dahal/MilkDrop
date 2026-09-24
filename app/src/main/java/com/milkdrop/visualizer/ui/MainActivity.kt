@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     private var autoAdvanceEnabled = true
     private var shuffleEnabled = true
+    private var hardCutEnabled = false
     private var allPresetEntries: List<PresetEntry> = emptyList()
     private var currentPlaylistPosition = 0
     private var fpsIndex = 0
@@ -54,7 +55,8 @@ class MainActivity : AppCompatActivity() {
     private val autoAdvanceRunnable = object : Runnable {
         override fun run() {
             if (autoAdvanceEnabled) {
-                surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext() }
+                val hardCut = hardCutEnabled
+                surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext(hardCut) }
             }
             autoAdvanceHandler.postDelayed(this, AUTO_ADVANCE_INTERVAL_MS)
         }
@@ -84,10 +86,11 @@ class MainActivity : AppCompatActivity() {
                     abs(deltaX) > abs(deltaY) &&
                     abs(velocityX) > SWIPE_VELOCITY_THRESHOLD
                 ) {
+                    val hardCut = hardCutEnabled
                     if (deltaX < 0) {
-                        surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext() }
+                        surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext(hardCut) }
                     } else {
-                        surfaceView.queueEvent { surfaceView.milkDropRenderer.playPrevious() }
+                        surfaceView.queueEvent { surfaceView.milkDropRenderer.playPrevious(hardCut) }
                     }
                     return true
                 }
@@ -178,11 +181,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupOverlay() {
         binding.btnNext.setOnClickListener {
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext() }
+            val hardCut = hardCutEnabled
+            surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext(hardCut) }
             resetOverlayTimer()
         }
         binding.btnPrevious.setOnClickListener {
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.playPrevious() }
+            val hardCut = hardCutEnabled
+            surfaceView.queueEvent { surfaceView.milkDropRenderer.playPrevious(hardCut) }
             resetOverlayTimer()
         }
         binding.btnShuffle.setOnClickListener {
@@ -223,12 +228,18 @@ class MainActivity : AppCompatActivity() {
             surfaceView.setResolutionScale(QUALITY_SCALES[qualityIndex])
             resetOverlayTimer()
         }
+        binding.btnTransition.setOnClickListener {
+            hardCutEnabled = !hardCutEnabled
+            binding.btnTransition.setText(if (hardCutEnabled) R.string.transition_instant else R.string.transition_smooth)
+            resetOverlayTimer()
+        }
     }
 
     private fun setupPlaylistPanel() {
         binding.playlistRecyclerView.layoutManager = LinearLayoutManager(this)
         presetAdapter = PresetListAdapter { entry ->
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.jumpToPreset(entry.index) }
+            val hardCut = hardCutEnabled
+            surfaceView.queueEvent { surfaceView.milkDropRenderer.jumpToPreset(entry.index, hardCut) }
             closePlaylistPanel()
         }
         binding.playlistRecyclerView.adapter = presetAdapter
