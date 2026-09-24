@@ -7,9 +7,10 @@ import java.io.File
 class MilkDropSurfaceView(
     context: Context,
     texturesDir: File,
+    initialShuffleEnabled: Boolean,
 ) : GLSurfaceView(context) {
 
-    val milkDropRenderer = MilkDropRenderer(texturesDir)
+    val milkDropRenderer = MilkDropRenderer(texturesDir, initialShuffleEnabled)
 
     init {
         setEGLContextClientVersion(3)

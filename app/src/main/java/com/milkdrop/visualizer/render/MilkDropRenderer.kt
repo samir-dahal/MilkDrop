@@ -8,9 +8,15 @@ import javax.microedition.khronos.opengles.GL10
 /**
  * All methods here (besides [handle] reads) must run on the GLSurfaceView's GL thread —
  * callers outside the renderer should wrap calls in `GLSurfaceView.queueEvent { ... }`.
+ *
+ * `queueEvent` does NOT guarantee running after [onSurfaceCreated]: GLSurfaceView's GL thread
+ * drains queued events before it necessarily reaches surface setup, so an event queued
+ * immediately (no delay) can execute while [handle] is still 0. Every method here guards
+ * against that instead of assuming ordering — learned from a real null-pointer native crash.
  */
 class MilkDropRenderer(
     private val texturesDir: File,
+    private val initialShuffleEnabled: Boolean,
 ) : GLSurfaceView.Renderer {
 
     @Volatile
@@ -33,7 +39,7 @@ class MilkDropRenderer(
         ProjectMBridge.nativeSetTextureSearchPaths(handle, arrayOf(texturesDir.absolutePath))
         ProjectMBridge.nativeSetPresetDuration(handle, DEFAULT_PRESET_DURATION_SECONDS)
         ProjectMBridge.nativeSetSoftCutDuration(handle, SOFT_CUT_DURATION_SECONDS)
-        ProjectMBridge.nativeSetShuffle(handle, true)
+        ProjectMBridge.nativeSetShuffle(handle, initialShuffleEnabled)
         // No preset loaded yet — projectM renders a blank frame until the background
         // filesystem scan (thousands of files) hands off results; see loadScannedPresets().
         // ("idle://" looked like a natural placeholder, but it requires a non-empty connected
@@ -42,9 +48,10 @@ class MilkDropRenderer(
 
     /** Called once the caller has finished scanning the presets directory on a background thread. */
     fun loadScannedPresets(paths: List<String>) {
-        if (paths.isNotEmpty()) {
-            ProjectMBridge.nativeAddPresets(handle, paths.toTypedArray(), false)
-            ProjectMBridge.nativePlayNext(handle, false)
+        val currentHandle = handle
+        if (currentHandle != 0L && paths.isNotEmpty()) {
+            ProjectMBridge.nativeAddPresets(currentHandle, paths.toTypedArray(), false)
+            ProjectMBridge.nativePlayNext(currentHandle, false)
         }
     }
 
@@ -70,24 +77,42 @@ class MilkDropRenderer(
     }
 
     fun playNext(hardCut: Boolean) {
-        ProjectMBridge.nativePlayNext(handle, hardCut)
+        val currentHandle = handle
+        if (currentHandle != 0L) {
+            ProjectMBridge.nativePlayNext(currentHandle, hardCut)
+        }
     }
 
     fun playPrevious(hardCut: Boolean) {
-        ProjectMBridge.nativePlayPrevious(handle, hardCut)
+        val currentHandle = handle
+        if (currentHandle != 0L) {
+            ProjectMBridge.nativePlayPrevious(currentHandle, hardCut)
+        }
     }
 
     fun setShuffle(enabled: Boolean) {
-        ProjectMBridge.nativeSetShuffle(handle, enabled)
+        val currentHandle = handle
+        if (currentHandle != 0L) {
+            ProjectMBridge.nativeSetShuffle(currentHandle, enabled)
+        }
     }
 
-    fun playlistPosition(): Int = ProjectMBridge.nativeGetPlaylistPosition(handle)
+    fun playlistPosition(): Int {
+        val currentHandle = handle
+        return if (currentHandle != 0L) ProjectMBridge.nativeGetPlaylistPosition(currentHandle) else 0
+    }
 
     fun jumpToPreset(position: Int, hardCut: Boolean) {
-        ProjectMBridge.nativeSetPlaylistPosition(handle, position, hardCut)
+        val currentHandle = handle
+        if (currentHandle != 0L) {
+            ProjectMBridge.nativeSetPlaylistPosition(currentHandle, position, hardCut)
+        }
     }
 
-    fun playlistItems(): Array<String> = ProjectMBridge.nativeGetPlaylistItems(handle)
+    fun playlistItems(): Array<String> {
+        val currentHandle = handle
+        return if (currentHandle != 0L) ProjectMBridge.nativeGetPlaylistItems(currentHandle) else emptyArray()
+    }
 
     fun feedPcm(samples: ShortArray, frameCount: Int, channels: Int) {
         val currentHandle = handle

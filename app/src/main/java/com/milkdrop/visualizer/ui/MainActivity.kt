@@ -31,7 +31,7 @@ import com.milkdrop.visualizer.audio.AudioCaptureManager
 import com.milkdrop.visualizer.databinding.ActivityMainBinding
 import com.milkdrop.visualizer.presets.PresetPaths
 import com.milkdrop.visualizer.render.MilkDropSurfaceView
-import kotlin.math.abs
+import com.milkdrop.visualizer.settings.AppSettings
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var surfaceView: MilkDropSurfaceView
     private lateinit var audioCaptureManager: AudioCaptureManager
     private lateinit var presetAdapter: PresetListAdapter
+    private lateinit var settings: AppSettings
 
     private var autoAdvanceEnabled = true
     private var shuffleEnabled = true
@@ -77,25 +78,6 @@ class MainActivity : AppCompatActivity() {
                 hideAllUi()
                 return true
             }
-
-            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
-                val startX = e1?.x ?: return false
-                val deltaX = e2.x - startX
-                val deltaY = e2.y - e1.y
-                if (abs(deltaX) > SWIPE_DISTANCE_THRESHOLD_PX &&
-                    abs(deltaX) > abs(deltaY) &&
-                    abs(velocityX) > SWIPE_VELOCITY_THRESHOLD
-                ) {
-                    val hardCut = hardCutEnabled
-                    if (deltaX < 0) {
-                        surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext(hardCut) }
-                    } else {
-                        surfaceView.queueEvent { surfaceView.milkDropRenderer.playPrevious(hardCut) }
-                    }
-                    return true
-                }
-                return false
-            }
         })
     }
 
@@ -111,7 +93,7 @@ class MainActivity : AppCompatActivity() {
 
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            switchToMic()
+            startPersistedAudioSource()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,10 +103,19 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        settings = AppSettings(this)
+        autoAdvanceEnabled = settings.autoAdvanceEnabled
+        shuffleEnabled = settings.shuffleEnabled
+        hardCutEnabled = settings.hardCutEnabled
+        fpsIndex = settings.fpsIndex
+        qualityIndex = settings.qualityIndex
+        restoreButtonLabels()
+
         PresetPaths.ensureDirsExist()
 
-        surfaceView = MilkDropSurfaceView(this, PresetPaths.texturesDir)
+        surfaceView = MilkDropSurfaceView(this, PresetPaths.texturesDir, shuffleEnabled)
         binding.surfaceContainer.addView(surfaceView)
+        applyRestoredRenderSettings()
 
         audioCaptureManager = AudioCaptureManager(this) { samples, frameCount, channels ->
             surfaceView.milkDropRenderer.feedPcm(samples, frameCount, channels)
@@ -137,10 +128,30 @@ class MainActivity : AppCompatActivity() {
         scanPresetsInBackground()
     }
 
+    /** Button labels default to their "on"/index-0 state in the layout — override to match what was restored. */
+    private fun restoreButtonLabels() {
+        binding.btnShuffle.setText(if (shuffleEnabled) R.string.btn_shuffle_on else R.string.btn_shuffle_off)
+        binding.btnPlayPause.setText(if (autoAdvanceEnabled) R.string.btn_auto_on else R.string.btn_auto_off)
+        binding.btnTransition.setText(if (hardCutEnabled) R.string.transition_instant else R.string.transition_smooth)
+        binding.btnFps.setText(FPS_LABELS[fpsIndex])
+        binding.btnQuality.setText(QUALITY_LABELS[qualityIndex])
+    }
+
+    /**
+     * Restored labels are cosmetic only — actually apply FPS/quality to the renderer. Shuffle is
+     * handled separately: it's passed into MilkDropSurfaceView's constructor and applied directly
+     * inside onSurfaceCreated, since a queueEvent here could race ahead of surface creation (see
+     * MilkDropRenderer's class doc — this raced and crashed once already).
+     */
+    private fun applyRestoredRenderSettings() {
+        surfaceView.milkDropRenderer.targetFps = FPS_OPTIONS[fpsIndex]
+        surfaceView.setResolutionScale(QUALITY_SCALES[qualityIndex])
+    }
+
     /**
      * Scanning the presets directory (thousands of files across packs) is too slow to do on the
      * GL thread without stalling the first rendered frame — walk it here instead, then hand the
-     * results to the renderer once ready. The idle preset loaded in onSurfaceCreated covers the gap.
+     * results to the renderer once ready. The renderer shows a blank frame until then.
      */
     private fun scanPresetsInBackground() {
         Thread({
@@ -192,6 +203,7 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnShuffle.setOnClickListener {
             shuffleEnabled = !shuffleEnabled
+            settings.shuffleEnabled = shuffleEnabled
             binding.btnShuffle.setText(if (shuffleEnabled) R.string.btn_shuffle_on else R.string.btn_shuffle_off)
             surfaceView.queueEvent { surfaceView.milkDropRenderer.setShuffle(shuffleEnabled) }
             resetOverlayTimer()
@@ -199,6 +211,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnPlaylist.setOnClickListener { openPlaylistPanel() }
         binding.btnPlayPause.setOnClickListener {
             autoAdvanceEnabled = !autoAdvanceEnabled
+            settings.autoAdvanceEnabled = autoAdvanceEnabled
             binding.btnPlayPause.setText(if (autoAdvanceEnabled) R.string.btn_auto_on else R.string.btn_auto_off)
             resetOverlayTimer()
         }
@@ -211,6 +224,7 @@ class MainActivity : AppCompatActivity() {
             if (audioCaptureManager.currentSource == AudioCaptureManager.SourceType.INTERNAL) {
                 switchToMic()
             } else {
+                settings.internalAudioSource = true
                 binding.btnAudioSource.setText(R.string.audio_source_internal)
                 requestInternalCapture()
             }
@@ -218,18 +232,21 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnFps.setOnClickListener {
             fpsIndex = (fpsIndex + 1) % FPS_OPTIONS.size
+            settings.fpsIndex = fpsIndex
             binding.btnFps.setText(FPS_LABELS[fpsIndex])
             surfaceView.milkDropRenderer.targetFps = FPS_OPTIONS[fpsIndex]
             resetOverlayTimer()
         }
         binding.btnQuality.setOnClickListener {
             qualityIndex = (qualityIndex + 1) % QUALITY_SCALES.size
+            settings.qualityIndex = qualityIndex
             binding.btnQuality.setText(QUALITY_LABELS[qualityIndex])
             surfaceView.setResolutionScale(QUALITY_SCALES[qualityIndex])
             resetOverlayTimer()
         }
         binding.btnTransition.setOnClickListener {
             hardCutEnabled = !hardCutEnabled
+            settings.hardCutEnabled = hardCutEnabled
             binding.btnTransition.setText(if (hardCutEnabled) R.string.transition_instant else R.string.transition_smooth)
             resetOverlayTimer()
         }
@@ -340,6 +357,15 @@ class MainActivity : AppCompatActivity() {
         if (needed.isNotEmpty()) {
             permissionsLauncher.launch(needed.toTypedArray())
         } else {
+            startPersistedAudioSource()
+        }
+    }
+
+    private fun startPersistedAudioSource() {
+        if (settings.internalAudioSource) {
+            binding.btnAudioSource.setText(R.string.audio_source_internal)
+            requestInternalCapture()
+        } else {
             switchToMic()
         }
     }
@@ -352,13 +378,12 @@ class MainActivity : AppCompatActivity() {
     private fun switchToMic() {
         audioCaptureManager.startMic()
         binding.btnAudioSource.setText(R.string.audio_source_mic)
+        settings.internalAudioSource = false
     }
 
     private companion object {
         const val AUTO_ADVANCE_INTERVAL_MS = 15000L
         const val OVERLAY_HIDE_DELAY_MS = 3000L
-        const val SWIPE_DISTANCE_THRESHOLD_PX = 120
-        const val SWIPE_VELOCITY_THRESHOLD = 200
 
         // 0 = uncapped. Index 0 (30fps) is the default performance-friendly setting.
         val FPS_OPTIONS = intArrayOf(30, 45, 60, 0)
