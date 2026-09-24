@@ -1,0 +1,27 @@
+*.iml
+.gradle/
+/local.properties
+.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.ap_
+*.dex
+*.class
+
+app/build/
+app/.cxx/
+
+# NDK/CMake generated
+*.so
+!native/**/*.so
+
+# projectM build output inside submodule (submodule itself is tracked as a gitlink)
+native/projectm/build/
+
+# Local staging area for downloaded preset/texture packs (pushed to device via adb,
+# not part of the app's source tree)
+/Presets/

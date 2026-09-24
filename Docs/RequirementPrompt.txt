@@ -1,0 +1,100 @@
+PROJECT: Personal Android MilkDrop-style Music Visualizer (local use only, no Play Store distribution — ignore Play policy constraints, ignore scoped storage restrictions where inconvenient, use MANAGE_EXTERNAL_STORAGE or broad permissions freely)
+
+GOAL:
+Build a full Android app that renders MilkDrop/projectM-style visuals reacting in real time
+to the phone's own internal audio playback (e.g. YouTube app, browser audio, games), with
+presets loaded lazily from external storage rather than bundled in assets.
+
+BASE:
+Start from https://github.com/projectM-visualizer/examples-android as the JNI/projectM
+integration skeleton. Replace/extend its audio input and preset loading — don't just add mic
+input on top of it as-is.
+
+=== 1. libprojectM INTEGRATION ===
+- Build libprojectM (https://github.com/projectM-visualizer/projectm, use latest 4.x release,
+  e.g. tag around 4.1.1) for Android via CMake + NDK, targeting arm64-v8a and x86_64 at minimum.
+- Prefer building from source as a submodule/fetched dependency over relying on possibly-stale
+  prebuilt CI artifacts, so presets/API stay in sync with the version being linked.
+- Also build projectm-playlist (https://github.com/projectM-visualizer/projectm-eval and any
+  playlist helper library in the org) if available for that release — use it for preset list
+  management (shuffle, next/prev, sorting) instead of hand-rolling playlist logic, if it exists
+  for this version; otherwise implement equivalent logic in Kotlin.
+- Wire JNI bindings for: initializing projectM with a GL context, feeding PCM audio
+  (int16 or float — use whichever the version's C API exposes, e.g. projectm_pcm_add_*),
+  rendering a frame, loading a preset from a file path, and querying/setting preset list state.
+
+=== 2. RENDERING ===
+- Use a GLSurfaceView (GLES 3.0 context) as the render target, fullscreen, no title bar,
+  immersive mode (hide system bars).
+- Render loop: on each GLSurfaceView.Renderer.onDrawFrame, call into projectM's render function
+  via JNI. Target continuous rendering (RENDERMODE_CONTINUOUSLY).
+- Handle GL context creation/destruction lifecycle correctly on surface changed/destroyed.
+
+=== 3. AUDIO CAPTURE (internal playback, not mic) ===
+- Implement Android's AudioPlaybackCapture API (API 29+):
+  - Request RECORD_AUDIO permission at runtime.
+  - Trigger MediaProjectionManager.createScreenCaptureIntent() to get user consent
+    (system dialog) — needed because AudioPlaybackCapture piggybacks on MediaProjection.
+  - Build AudioPlaybackCaptureConfiguration matching AudioAttributes.USAGE_MEDIA and
+    USAGE_GAME (add more usages if needed) via addMatchingUsage().
+  - Build an AudioRecord with this configuration, start reading PCM buffers continuously
+    on a dedicated thread.
+  - Run capture inside a foreground service (type: mediaProjection) so it survives the
+    visualizer being backgrounded briefly and satisfies Android's foreground-service
+    requirements for MediaProjection-based capture on modern Android versions.
+  - Feed captured PCM buffers into projectM via the JNI bridge from step 1, at whatever
+    sample rate/format projectM expects (resample if necessary).
+- Known limitation to build around: some apps (e.g. Spotify) set their own audio capture
+  policy to block third-party capture — this is expected and not a bug. Design the audio
+  source as swappable: internal playback capture as primary source, with a fallback mode
+  that captures from the microphone instead (for blocked apps or ambient audio), toggleable
+  in-app.
+- No need to handle capture consent gracefully for a Play-store audience — a simple
+  "grant on launch, restart if revoked" flow is fine.
+
+=== 4. PRESET MANAGEMENT (lazy load from external storage) ===
+- Do NOT bundle preset packs in assets/. Instead:
+  - Use a dedicated external directory (e.g. app-specific external files dir, or a
+    user-chosen folder via Storage Access Framework / plain external storage path since
+    this is a personal unsigned build — MANAGE_EXTERNAL_STORAGE permission is fine).
+  - On launch, recursively scan that directory for .milk files, build an in-memory list of
+    file paths (don't parse/load contents upfront) — this is the lazy part.
+  - When the visualizer switches to a preset, THEN load/parse that specific file via
+    projectM's load-preset-from-path call.
+  - Support subfolders (users will drop in multiple preset packs like Cream of the Crop,
+    Milkdrop2, Classic projectM, etc. as separate subfolders).
+  - Also scan for and register a textures directory (Milkdrop base texture pack) since many
+    presets reference shared textures — pass this path to projectM's texture search path
+    config.
+- Implement preset cycling logic: next, previous, random/shuffle, and a configurable
+  auto-advance timer (e.g. every N seconds, switch to a new preset — classic MilkDrop
+  behavior). Use projectm-playlist's shuffle/history logic if available (see step 1),
+  otherwise implement in Kotlin with a shuffled index list + history stack for "previous."
+
+=== 5. UI ===
+- Fullscreen GLSurfaceView is the primary view.
+- Tap anywhere to toggle a minimal overlay control bar with: Play/Pause auto-advance,
+  Next, Previous, Random, and a toggle for audio source (internal playback vs. mic).
+- Auto-hide the overlay after a few seconds of inactivity.
+- No onboarding, no settings screens beyond what's needed to point at the preset folder
+  and toggle audio source — keep this minimal, it's a personal tool.
+
+=== 6. PERMISSIONS / MANIFEST ===
+- RECORD_AUDIO
+- FOREGROUND_SERVICE and FOREGROUND_SERVICE_MEDIA_PROJECTION
+- MANAGE_EXTERNAL_STORAGE (or READ/WRITE_EXTERNAL_STORAGE with legacy storage flag if
+  targeting a lower API is simpler) — since this is sideloaded and personal, prioritize
+  simplicity over scoped-storage best practice.
+- Request android:allowAudioPlaybackCapture in the manifest for this app itself if relevant.
+- Target a recent SDK for AudioPlaybackCapture support, min SDK 29.
+
+=== 7. BUILD/OUTPUT ===
+- Standard Gradle project, debug-signed APK is fine (no release signing needed).
+- Provide clear instructions (as a README or comments) on where to physically drop preset
+  pack folders and the texture pack after installing the APK.
+- Make sure it actually builds and installs via `./gradlew installDebug` or equivalent —
+  verify the build, don't just write code and assume it compiles.
+
+DELIVERABLE: A working APK I can sideload, that opens fullscreen, captures whatever audio
+is playing on the phone (YouTube etc.), and renders MilkDrop presets loaded from a folder I
+control on external storage, with basic next/prev/random/auto-advance controls.
