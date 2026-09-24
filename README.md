@@ -33,11 +33,25 @@ Grant the "All files access" permission when prompted so the app can read these 
 
 ## Controls
 
-Tap anywhere to show/hide the control bar: Play/Pause (auto-advance), Previous, Next, Random,
-and a toggle between internal-playback audio capture and the microphone. Internal capture asks
-for a one-time screen-capture-style consent dialog each time it starts — that's required by
-Android's `AudioPlaybackCapture` API. Some apps (e.g. Spotify) block third-party playback
-capture by design; switch to the microphone source for those.
+Tap the visuals to show the controls; tap again to hide them. They stay up until you tap again.
+
+- **Prev / Next** — step through presets. Prev goes back through the presets you actually saw,
+  even with shuffle on.
+- **Shuffle** — random order instead of folder order.
+- **List** — browse and search all presets; tap one to jump to it. Back closes the list.
+- **Auto** — when on, switches preset every ~15 seconds; when off, stays on the current preset.
+- **Media** — play/pause whatever audio app is playing.
+- **Source** — switch between internal playback capture and the microphone. Internal capture
+  asks for a screen-capture-style consent dialog each time it starts — that's required by
+  Android's `AudioPlaybackCapture` API. Some apps (e.g. Spotify) block third-party playback
+  capture by design; switch to the microphone for those.
+- **FPS** — frame rate cap (30 / 45 / 60 / uncapped).
+- **Quality** — render resolution (High / Medium / Low). Low also uses a coarser warp mesh.
+- **Transition** — Smooth blends into the next preset over a second; Instant cuts straight to it.
+
+All toggles, and the preset that was showing, are remembered across launches. The preset list
+is cached, so the app resumes within a moment of opening; it rescans the presets folder in the
+background and picks up added or removed presets automatically.
 
 ## Licensing note
 

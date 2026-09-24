@@ -4,13 +4,17 @@ import android.content.Context
 import android.opengl.GLSurfaceView
 import android.view.Choreographer
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class MilkDropSurfaceView(
     context: Context,
     texturesDir: File,
 ) : GLSurfaceView(context) {
 
-    val milkDropRenderer = MilkDropRenderer(texturesDir)
+    private val performanceHints = RenderPerformanceHints(context)
+
+    val milkDropRenderer = MilkDropRenderer(texturesDir, performanceHints)
 
     /** 0 means uncapped (render on every vsync). */
     var targetFps: Int = 0
@@ -18,6 +22,10 @@ class MilkDropSurfaceView(
             field = value
             frameIntervalNanos = if (value <= 0) 0L else 1_000_000_000L / value
             nextRenderNanos = 0L
+            val displayHz = display?.refreshRate?.takeIf { it > 0f } ?: DEFAULT_REFRESH_HZ
+            performanceHints.setTargetFrameNanos(
+                if (frameIntervalNanos > 0L) frameIntervalNanos else (1_000_000_000L / displayHz).toLong()
+            )
         }
 
     private var frameIntervalNanos = 0L
@@ -35,9 +43,9 @@ class MilkDropSurfaceView(
             if (!pacing) return
             val interval = frameIntervalNanos
             if (interval == 0L) {
-                requestRender()
+                requestFrame()
             } else if (frameTimeNanos >= nextRenderNanos - VSYNC_SLACK_NANOS) {
-                requestRender()
+                requestFrame()
                 // Advance on a fixed schedule so rates that don't divide the refresh rate still
                 // average out right, but resync after a long stall instead of bursting to catch up.
                 nextRenderNanos = if (frameTimeNanos - nextRenderNanos > interval) {
@@ -48,6 +56,11 @@ class MilkDropSurfaceView(
             }
             Choreographer.getInstance().postFrameCallback(this)
         }
+    }
+
+    private fun requestFrame() {
+        performanceHints.onRenderRequested(System.nanoTime())
+        requestRender()
     }
 
     init {
@@ -75,6 +88,22 @@ class MilkDropSurfaceView(
     }
 
     /**
+     * Frees projectM on the GL thread before GLSurfaceView shuts that thread down. The previous
+     * `queueEvent` from Activity.onDestroy wasn't reliable: GLSurfaceView's GL thread checks for
+     * exit before draining its event queue, so the release could be skipped and the native
+     * instance leaked each time the activity was destroyed (e.g. backing out of the app).
+     */
+    override fun onDetachedFromWindow() {
+        val released = CountDownLatch(1)
+        queueEvent {
+            milkDropRenderer.release()
+            released.countDown()
+        }
+        released.await(RELEASE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        super.onDetachedFromWindow()
+    }
+
+    /**
      * Renders into a smaller native buffer that the compositor upscales to fill the view —
      * cuts per-frame fragment shader cost for heavy presets without any FBO/blit code of our own.
      * Must run after layout, since it needs the view's actual on-screen size.
@@ -92,5 +121,7 @@ class MilkDropSurfaceView(
     private companion object {
         /** Tolerance for vsync timestamp jitter, so a render due "right about now" isn't pushed a whole vsync late. */
         const val VSYNC_SLACK_NANOS = 4_000_000L
+        const val DEFAULT_REFRESH_HZ = 60f
+        const val RELEASE_TIMEOUT_MS = 1000L
     }
 }

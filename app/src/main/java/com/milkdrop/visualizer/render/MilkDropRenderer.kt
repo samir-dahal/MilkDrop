@@ -19,7 +19,10 @@ import javax.microedition.khronos.opengles.GL10
  *  - Each preset load blocks the GL thread (parse + shader compile), so taps queued during one
  *    load each triggered another full load afterwards. Now only the latest request is kept.
  */
-class MilkDropRenderer(private val texturesDir: File) : GLSurfaceView.Renderer {
+class MilkDropRenderer(
+    private val texturesDir: File,
+    private val performanceHints: RenderPerformanceHints,
+) : GLSurfaceView.Renderer {
 
     sealed interface Navigation {
         data object Next : Navigation
@@ -66,11 +69,36 @@ class MilkDropRenderer(private val texturesDir: File) : GLSurfaceView.Renderer {
 
     private val pendingNavigation = AtomicReference<Navigation?>(null)
 
-    /** Kept so the playlist can be rebuilt if the EGL context (and with it projectM) is recreated. */
+    /**
+     * Preset to resume on when a playlist is first built, e.g. the one showing at last exit. Kept
+     * current as presets change, so a rebuild after EGL context loss resumes where it was.
+     */
+    @Volatile
+    var startPresetPath: String? = null
+
+    /** Called on the GL thread whenever a different preset starts showing, however it was picked. */
+    @Volatile
+    var onPresetChanged: ((path: String) -> Unit)? = null
+
+    /** Called on the GL thread once a playlist is loaded and navigation works. */
+    @Volatile
+    var onPresetsReady: (() -> Unit)? = null
+
+    /** Latest list handed over by [loadScannedPresets]; applied on the GL thread when it changes. */
     @Volatile
     private var presetPaths: List<String> = emptyList()
 
-    private var presetsLoaded = false
+    /**
+     * The list projectM's playlist currently holds, in the same order, or null before one is
+     * loaded. Kept so the playlist can be rebuilt if the EGL context (and projectM) is recreated.
+     */
+    @Volatile
+    private var loadedPaths: List<String>? = null
+
+    private var lastReportedPosition = -1
+
+    /** Guards [handle] against being destroyed while the audio thread is mid-[feedPcm]. */
+    private val pcmLock = Any()
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         // A second call means the EGL context was lost and recreated: every GL object the old
@@ -78,19 +106,25 @@ class MilkDropRenderer(private val texturesDir: File) : GLSurfaceView.Renderer {
         release()
 
         handle = ProjectMBridge.nativeCreate()
+        GpuDriverThreads.pinToFastCores()
+        performanceHints.onRenderThreadStarted()
         ProjectMBridge.nativeSetTextureSearchPaths(handle, arrayOf(texturesDir.absolutePath))
         ProjectMBridge.nativeSetPresetDuration(handle, PRESET_DURATION_SECONDS)
         appliedShuffle = null
         appliedAutoAdvance = null
         appliedInstantTransitions = null
         appliedMeshSize = null
-        // Until the background filesystem scan hands off results (see loadScannedPresets),
-        // projectM just shows its built-in idle preset.
-        presetsLoaded = false
+        // Until a preset list is handed over (see loadScannedPresets), projectM just shows its
+        // built-in idle preset.
+        loadedPaths = null
+        lastReportedPosition = -1
         applyPendingState()
     }
 
-    /** Safe to call from any thread, once the caller has finished scanning the presets directory. */
+    /**
+     * Safe to call from any thread, and again later with a newer list (e.g. a cached list first,
+     * then a fresh scan). A different list replaces the playlist, keeping the current preset.
+     */
     fun loadScannedPresets(paths: List<String>) {
         presetPaths = paths
     }
@@ -104,8 +138,24 @@ class MilkDropRenderer(private val texturesDir: File) : GLSurfaceView.Renderer {
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        performanceHints.onFrameStart(System.nanoTime())
         applyPendingState()
         ProjectMBridge.nativeRenderFrame(handle)
+        reportPresetChange()
+        performanceHints.onFrameEnd(System.nanoTime())
+    }
+
+    /** Covers auto-advance too, which projectM does internally without going through [navigate]. */
+    private fun reportPresetChange() {
+        val paths = loadedPaths ?: return
+        val position = ProjectMBridge.nativeGetPlaylistPosition(handle)
+        if (position != lastReportedPosition) {
+            lastReportedPosition = position
+            paths.getOrNull(position)?.let { path ->
+                startPresetPath = path
+                onPresetChanged?.invoke(path)
+            }
+        }
     }
 
     private fun applyPendingState() {
@@ -137,21 +187,32 @@ class MilkDropRenderer(private val texturesDir: File) : GLSurfaceView.Renderer {
         }
 
         // After shuffle is applied, so the very first preset already honours it.
-        if (!presetsLoaded && presetPaths.isNotEmpty()) {
-            addPresetsAndStart(presetPaths)
+        // Identity check: it runs every frame, and callers hand over a new list only when it changed.
+        val paths = presetPaths
+        if (paths.isNotEmpty() && paths !== loadedPaths) {
+            loadPlaylist(currentHandle, paths)
         }
 
-        if (presetsLoaded) {
+        if (loadedPaths != null) {
             pendingNavigation.getAndSet(null)?.let { navigate(currentHandle, it) }
         }
     }
 
-    private fun addPresetsAndStart(paths: List<String>) {
+    private fun loadPlaylist(currentHandle: Long, paths: List<String>) {
+        if (loadedPaths != null) {
+            ProjectMBridge.nativeClearPresets(currentHandle)
+        }
         // The scan already yields unique paths. With duplicate checking on, projectM does a linear
         // search per insert: O(n²) string compares on the GL thread, seconds for ~15k presets.
-        ProjectMBridge.nativeAddPresets(handle, paths.toTypedArray(), true)
-        presetsLoaded = true
-        navigate(handle, Navigation.Next)
+        ProjectMBridge.nativeAddPresets(currentHandle, paths.toTypedArray(), true)
+        loadedPaths = paths
+        lastReportedPosition = -1
+
+        // Resuming reloads the preset even when it's the one already showing (after a rescan found
+        // changes); the playlist API has no way to re-point its position without loading.
+        val resumeIndex = startPresetPath?.let { paths.indexOf(it) } ?: -1
+        navigate(currentHandle, if (resumeIndex >= 0) Navigation.JumpTo(resumeIndex) else Navigation.Next)
+        onPresetsReady?.invoke()
     }
 
     private fun navigate(currentHandle: Long, navigation: Navigation) {
@@ -174,20 +235,24 @@ class MilkDropRenderer(private val texturesDir: File) : GLSurfaceView.Renderer {
      * Same order as projectM's playlist (added verbatim, no filter or de-duplication), so any thread
      * can read it without copying ~15k strings back across JNI on the GL thread.
      */
-    fun playlistItems(): List<String> = presetPaths
+    fun playlistItems(): List<String> = loadedPaths.orEmpty()
 
     fun feedPcm(samples: ShortArray, frameCount: Int, channels: Int) {
-        val currentHandle = handle
-        if (currentHandle != 0L) {
-            ProjectMBridge.nativeFeedPcmInt16(currentHandle, samples, frameCount, channels)
+        synchronized(pcmLock) {
+            val currentHandle = handle
+            if (currentHandle != 0L) {
+                ProjectMBridge.nativeFeedPcmInt16(currentHandle, samples, frameCount, channels)
+            }
         }
     }
 
     /** Must run on the GL thread. */
     fun release() {
+        performanceHints.release()
         val currentHandle = handle
         if (currentHandle != 0L) {
-            handle = 0L
+            // Clear the handle under the lock so no feedPcm call can still be using it once it's freed.
+            synchronized(pcmLock) { handle = 0L }
             ProjectMBridge.nativeDestroy(currentHandle)
         }
     }

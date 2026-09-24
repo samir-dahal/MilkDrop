@@ -1,5 +1,7 @@
 #include <jni.h>
 #include <android/log.h>
+#include <sched.h>
+#include <cerrno>
 #include <exception>
 #include <vector>
 
@@ -202,7 +204,14 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetShuffle(JNIEnv*, job
 
 JNIEXPORT jint JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetPlaylistPosition(JNIEnv*, jobject, jlong handlePtr) {
-    return static_cast<jint>(projectm_playlist_get_position(AsHandle(handlePtr)->playlist));
+    projectm_playlist_handle playlist = AsHandle(handlePtr)->playlist;
+    // Throws PlaylistEmptyException on an empty playlist.
+    return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_get_position(playlist)); });
+}
+
+JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeClearPresets(JNIEnv*, jobject, jlong handlePtr) {
+    projectm_playlist_clear(AsHandle(handlePtr)->playlist);
 }
 
 JNIEXPORT jint JNICALL
@@ -224,6 +233,35 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeFeedPcmInt16(
                             static_cast<unsigned int>(frameCount),
                             channelEnum);
     env->ReleaseShortArrayElements(samples, data, JNI_ABORT);
+}
+
+// Restricts the given threads of this process to the given CPU cores. Java has no API for thread
+// affinity; an app may set it on its own threads without any permission. Returns how many threads
+// were updated.
+JNIEXPORT jint JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetThreadAffinity(
+        JNIEnv* env, jobject, jintArray tids, jintArray cpus) {
+    cpu_set_t cpuSet;
+    CPU_ZERO(&cpuSet);
+    jsize cpuCount = env->GetArrayLength(cpus);
+    std::vector<jint> cpuIds(static_cast<size_t>(cpuCount));
+    env->GetIntArrayRegion(cpus, 0, cpuCount, cpuIds.data());
+    for (jint cpu : cpuIds) {
+        CPU_SET(cpu, &cpuSet);
+    }
+
+    jsize tidCount = env->GetArrayLength(tids);
+    std::vector<jint> tidIds(static_cast<size_t>(tidCount));
+    env->GetIntArrayRegion(tids, 0, tidCount, tidIds.data());
+    jint updated = 0;
+    for (jint tid : tidIds) {
+        if (sched_setaffinity(tid, sizeof(cpuSet), &cpuSet) == 0) {
+            ++updated;
+        } else {
+            __android_log_print(ANDROID_LOG_WARN, "MilkDropJNI", "sched_setaffinity(%d) failed: %d", tid, errno);
+        }
+    }
+    return updated;
 }
 
 } // extern "C"

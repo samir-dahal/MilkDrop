@@ -40,8 +40,10 @@ adb uninstall com.milkdrop.visualizer
 - **Kept:** `/storage/emulated/0/MilkDropApp/` (presets and textures). It lives in shared
   storage, not in the app's private folders, so Android leaves it alone on uninstall.
 - **Removed:** the app's private data — saved toggle states (shuffle, auto, transition, FPS,
-  quality, audio source). They reset to defaults on next launch. You'll also need to grant the
-  permissions (microphone, notifications, All files access) again.
+  quality, audio source), the last preset shown, and the cached preset list. Toggles reset to
+  defaults, and the first launch afterwards rescans the presets folder (a few seconds, with a
+  "Loading presets…" line). You'll also need to grant the permissions (microphone,
+  notifications, All files access) again.
 
 ## Debug build (for development)
 

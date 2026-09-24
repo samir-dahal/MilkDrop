@@ -10,30 +10,35 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
-import android.view.GestureDetector
+import android.util.Log
 import android.view.KeyEvent
-import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.milkdrop.visualizer.R
 import com.milkdrop.visualizer.audio.AudioCaptureManager
 import com.milkdrop.visualizer.databinding.ActivityMainBinding
+import com.milkdrop.visualizer.presets.PresetListCache
 import com.milkdrop.visualizer.presets.PresetPaths
 import com.milkdrop.visualizer.render.MilkDropRenderer.MeshSize
 import com.milkdrop.visualizer.render.MilkDropRenderer.Navigation
 import com.milkdrop.visualizer.render.MilkDropSurfaceView
 import com.milkdrop.visualizer.settings.AppSettings
+import java.io.File
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
@@ -47,30 +52,18 @@ class MainActivity : AppCompatActivity() {
     private var shuffleEnabled = true
     private var hardCutEnabled = false
     private var allPresetEntries: List<PresetEntry> = emptyList()
+    private var allPresetEntriesSource: List<String>? = null
     private var currentPlaylistPosition = 0
+    private val searchExecutor = Executors.newSingleThreadExecutor()
+    private var pendingSearch = Runnable {}
+    private var searchGeneration = 0
+
+    /** Back closes the preset list instead of exiting the app while the list is open. */
+    private val closePlaylistOnBack = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() = closePlaylistPanel()
+    }
     private var fpsIndex = 0
     private var qualityIndex = 0
-
-    private val overlayHandler = Handler(Looper.getMainLooper())
-    private val hideOverlayRunnable = Runnable { binding.overlayControls.visibility = View.GONE }
-
-    private val gestureDetector by lazy {
-        GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent): Boolean {
-                return true
-            }
-
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                toggleOverlay()
-                return true
-            }
-
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                hideAllUi()
-                return true
-            }
-        })
-    }
 
     private val screenCaptureLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -115,8 +108,9 @@ class MainActivity : AppCompatActivity() {
         setupGestures()
         setupOverlay()
         setupPlaylistPanel()
+        applySystemBarInsets()
         requestPermissionsThenStartAudio()
-        scanPresetsInBackground()
+        loadPresetsInBackground()
     }
 
     /** Button labels default to their "on"/index-0 state in the layout — override to match what was restored. */
@@ -146,15 +140,65 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Scanning the presets directory (thousands of files across packs) is too slow to do on the
-     * GL thread without stalling the first rendered frame — walk it here instead, then hand the
-     * results to the renderer once ready. projectM shows its idle preset until then.
+     * Scanning the presets directory takes seconds, so a launch starts from the list cached by the
+     * previous run (and resumes the last preset) almost immediately, then rescans in the background
+     * and swaps in the new list only if the folder changed. projectM shows its idle preset, with a
+     * "Loading presets…" line, until the first list arrives — i.e. only on the very first launch.
      */
-    private fun scanPresetsInBackground() {
+    private fun loadPresetsInBackground() {
+        val renderer = surfaceView.milkDropRenderer
+        renderer.startPresetPath = settings.lastPresetPath
+        renderer.onPresetChanged = { path -> settings.lastPresetPath = path }
+        renderer.onPresetsReady = { runOnUiThread { binding.presetStatus.visibility = View.GONE } }
+        binding.presetStatus.setText(R.string.presets_loading)
+        binding.presetStatus.visibility = View.VISIBLE
+
+        val cache = PresetListCache(File(filesDir, PRESET_CACHE_FILE))
         Thread({
-            val paths = PresetPaths.scanPresets()
-            surfaceView.milkDropRenderer.loadScannedPresets(paths)
+            val cached = cache.read()
+            if (cached.isNotEmpty()) {
+                renderer.loadScannedPresets(cached)
+            }
+
+            val startMs = SystemClock.elapsedRealtime()
+            val scanned = PresetPaths.scanPresets()
+            Log.d(TAG, "Scanned ${scanned.size} presets in ${SystemClock.elapsedRealtime() - startMs} ms")
+            // An empty scan (e.g. storage access not granted yet) never overwrites a good cache.
+            if (scanned.isNotEmpty() && scanned != cached) {
+                cache.write(scanned)
+                renderer.loadScannedPresets(scanned)
+            }
+            if (scanned.isEmpty() && cached.isEmpty()) {
+                val message = if (hasAllFilesAccess()) R.string.presets_none_found else R.string.presets_need_access
+                runOnUiThread { binding.presetStatus.setText(message) }
+            }
         }, "milkdrop-preset-scan").start()
+    }
+
+    private fun hasAllFilesAccess(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
+
+    /**
+     * Keeps the controls clear of the system bars even though they're hidden: in immersive mode
+     * the bars reappear transiently over the app, and the bottom row of buttons sat right under
+     * the navigation bar's Home button.
+     */
+    private fun applySystemBarInsets() {
+        val overlayBottomPadding = binding.overlayControls.paddingBottom
+        val panelTopPadding = binding.playlistPanel.paddingTop
+        val panelBottomPadding = binding.playlistPanel.paddingBottom
+        val statusTopMargin = (binding.presetStatus.layoutParams as ViewGroup.MarginLayoutParams).topMargin
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val bars = insets.getInsetsIgnoringVisibility(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            binding.overlayControls.updatePadding(bottom = overlayBottomPadding + bars.bottom)
+            binding.playlistPanel.updatePadding(top = panelTopPadding + bars.top, bottom = panelBottomPadding + bars.bottom)
+            binding.presetStatus.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                topMargin = statusTopMargin + bars.top + (STATUS_TOP_GAP_DP * resources.displayMetrics.density).toInt()
+            }
+            insets
+        }
     }
 
     override fun onResume() {
@@ -170,7 +214,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         audioCaptureManager.stopAll()
-        surfaceView.queueEvent { surfaceView.milkDropRenderer.release() }
+        searchExecutor.shutdownNow()
     }
 
     private fun setImmersiveFullscreen() {
@@ -181,25 +225,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** A plain tap toggles the controls: tap to show, tap again to hide. No auto-hide, no double-tap. */
     private fun setupGestures() {
-        surfaceView.setOnTouchListener { _, event -> gestureDetector.onTouchEvent(event) }
+        surfaceView.setOnClickListener { toggleOverlay() }
     }
 
     private fun setupOverlay() {
         binding.btnNext.setOnClickListener {
             surfaceView.milkDropRenderer.requestNavigation(Navigation.Next)
-            resetOverlayTimer()
         }
         binding.btnPrevious.setOnClickListener {
             surfaceView.milkDropRenderer.requestNavigation(Navigation.Previous)
-            resetOverlayTimer()
         }
         binding.btnShuffle.setOnClickListener {
             shuffleEnabled = !shuffleEnabled
             settings.shuffleEnabled = shuffleEnabled
             binding.btnShuffle.setText(if (shuffleEnabled) R.string.btn_shuffle_on else R.string.btn_shuffle_off)
             surfaceView.milkDropRenderer.shuffleEnabled = shuffleEnabled
-            resetOverlayTimer()
         }
         binding.btnPlaylist.setOnClickListener { openPlaylistPanel() }
         binding.btnPlayPause.setOnClickListener {
@@ -207,11 +249,9 @@ class MainActivity : AppCompatActivity() {
             settings.autoAdvanceEnabled = autoAdvanceEnabled
             binding.btnPlayPause.setText(if (autoAdvanceEnabled) R.string.btn_auto_on else R.string.btn_auto_off)
             surfaceView.milkDropRenderer.autoAdvanceEnabled = autoAdvanceEnabled
-            resetOverlayTimer()
         }
         binding.btnMediaPlayPause.setOnClickListener {
             dispatchMediaPlayPause()
-            resetOverlayTimer()
         }
         binding.btnAudioSource.setOnClickListener {
             audioCaptureManager.stopAll()
@@ -222,28 +262,24 @@ class MainActivity : AppCompatActivity() {
                 binding.btnAudioSource.setText(R.string.audio_source_internal)
                 requestInternalCapture()
             }
-            resetOverlayTimer()
         }
         binding.btnFps.setOnClickListener {
             fpsIndex = (fpsIndex + 1) % FPS_OPTIONS.size
             settings.fpsIndex = fpsIndex
             binding.btnFps.setText(FPS_LABELS[fpsIndex])
             surfaceView.targetFps = FPS_OPTIONS[fpsIndex]
-            resetOverlayTimer()
         }
         binding.btnQuality.setOnClickListener {
             qualityIndex = (qualityIndex + 1) % QUALITY_SCALES.size
             settings.qualityIndex = qualityIndex
             binding.btnQuality.setText(QUALITY_LABELS[qualityIndex])
             applyQuality()
-            resetOverlayTimer()
         }
         binding.btnTransition.setOnClickListener {
             hardCutEnabled = !hardCutEnabled
             settings.hardCutEnabled = hardCutEnabled
             binding.btnTransition.setText(if (hardCutEnabled) R.string.transition_instant else R.string.transition_smooth)
             surfaceView.milkDropRenderer.instantTransitions = hardCutEnabled
-            resetOverlayTimer()
         }
     }
 
@@ -256,62 +292,70 @@ class MainActivity : AppCompatActivity() {
         binding.playlistRecyclerView.adapter = presetAdapter
 
         binding.btnClosePlaylist.setOnClickListener { closePlaylistPanel() }
-        binding.playlistSearch.doAfterTextChanged { filterPresetList(it?.toString().orEmpty()) }
+        onBackPressedDispatcher.addCallback(this, closePlaylistOnBack)
+        binding.playlistSearch.doAfterTextChanged { scheduleSearch(it?.toString().orEmpty()) }
     }
 
     private fun openPlaylistPanel() {
         binding.overlayControls.visibility = View.GONE
-        overlayHandler.removeCallbacks(hideOverlayRunnable)
         binding.playlistSearch.setText("")
         binding.playlistPanel.visibility = View.VISIBLE
+        closePlaylistOnBack.isEnabled = true
 
         surfaceView.queueEvent {
             val position = surfaceView.milkDropRenderer.playlistPosition()
             runOnUiThread {
-                val entries = surfaceView.milkDropRenderer.playlistItems()
-                    .mapIndexed { index, path -> PresetEntry(index, path) }
-                allPresetEntries = entries
+                val items = surfaceView.milkDropRenderer.playlistItems()
+                if (items !== allPresetEntriesSource) {
+                    allPresetEntries = items.mapIndexed { index, path -> PresetEntry(index, path) }
+                    allPresetEntriesSource = items
+                }
                 currentPlaylistPosition = position
-                presetAdapter.submit(entries, position)
-                if (entries.isNotEmpty()) {
-                    binding.playlistRecyclerView.scrollToPosition(position.coerceIn(0, entries.size - 1))
+                presetAdapter.submit(allPresetEntries, position)
+                if (allPresetEntries.isNotEmpty()) {
+                    binding.playlistRecyclerView.scrollToPosition(position.coerceIn(0, allPresetEntries.size - 1))
                 }
             }
         }
     }
 
     private fun closePlaylistPanel() {
+        // The search box's keyboard otherwise stays up after picking a preset, covering (and
+        // swallowing taps meant for) the bottom rows of controls.
+        binding.playlistSearch.clearFocus()
+        WindowCompat.getInsetsController(window, binding.playlistSearch).hide(WindowInsetsCompat.Type.ime())
         binding.playlistPanel.visibility = View.GONE
+        closePlaylistOnBack.isEnabled = false
     }
 
-    private fun filterPresetList(query: String) {
-        val filtered = if (query.isBlank()) {
-            allPresetEntries
-        } else {
-            allPresetEntries.filter { it.path.contains(query, ignoreCase = true) }
+    /**
+     * Waits for a pause in typing, then filters ~15k paths off the main thread, so each keystroke
+     * doesn't re-filter and rebind the whole list. Results from an older query are dropped.
+     */
+    private fun scheduleSearch(query: String) {
+        binding.playlistSearch.removeCallbacks(pendingSearch)
+        pendingSearch = Runnable {
+            val generation = ++searchGeneration
+            val entries = allPresetEntries
+            searchExecutor.execute {
+                val filtered = if (query.isBlank()) {
+                    entries
+                } else {
+                    entries.filter { it.path.contains(query, ignoreCase = true) }
+                }
+                runOnUiThread {
+                    if (generation == searchGeneration) {
+                        presetAdapter.submit(filtered, currentPlaylistPosition)
+                    }
+                }
+            }
         }
-        presetAdapter.submit(filtered, currentPlaylistPosition)
+        binding.playlistSearch.postDelayed(pendingSearch, SEARCH_DEBOUNCE_MS)
     }
 
     private fun toggleOverlay() {
-        if (binding.overlayControls.visibility == View.VISIBLE) {
-            binding.overlayControls.visibility = View.GONE
-            overlayHandler.removeCallbacks(hideOverlayRunnable)
-        } else {
-            binding.overlayControls.visibility = View.VISIBLE
-            resetOverlayTimer()
-        }
-    }
-
-    private fun hideAllUi() {
-        binding.overlayControls.visibility = View.GONE
-        binding.playlistPanel.visibility = View.GONE
-        overlayHandler.removeCallbacks(hideOverlayRunnable)
-    }
-
-    private fun resetOverlayTimer() {
-        overlayHandler.removeCallbacks(hideOverlayRunnable)
-        overlayHandler.postDelayed(hideOverlayRunnable, OVERLAY_HIDE_DELAY_MS)
+        binding.overlayControls.visibility =
+            if (binding.overlayControls.visibility == View.VISIBLE) View.GONE else View.VISIBLE
     }
 
     private fun dispatchMediaPlayPause() {
@@ -339,7 +383,7 @@ class MainActivity : AppCompatActivity() {
             needed += Manifest.permission.POST_NOTIFICATIONS
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+        if (!hasAllFilesAccess()) {
             startActivity(
                 Intent(
                     Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
@@ -376,7 +420,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private companion object {
-        const val OVERLAY_HIDE_DELAY_MS = 3000L
+        const val TAG = "MainActivity"
+        const val PRESET_CACHE_FILE = "preset_list_cache.txt"
+        const val SEARCH_DEBOUNCE_MS = 250L
+        const val STATUS_TOP_GAP_DP = 12
 
         // 0 = uncapped. Index 0 (30fps) is the default performance-friendly setting.
         val FPS_OPTIONS = intArrayOf(30, 45, 60, 0)

@@ -24,10 +24,31 @@ object PresetPaths {
         texturesDir.mkdirs()
     }
 
-    /** Blocking recursive filesystem walk — call from a background thread, not the GL or UI thread. */
-    fun scanPresets(): List<String> =
-        presetsDir.walkTopDown()
-            .filter { it.isFile && it.extension.equals("milk", ignoreCase = true) }
-            .map { it.absolutePath }
-            .toList()
+    /**
+     * Blocking recursive filesystem walk — call from a background thread, not the GL or UI thread.
+     *
+     * Deliberately avoids a per-file stat (`isFile`/`isDirectory`): shared storage goes through
+     * FUSE, where each stat is a slow round trip, and asking for all ~15k presets took ~8 s on
+     * the Galaxy F15. Names ending in `.milk` are taken as presets from the directory listing
+     * alone; only other names are probed, by trying to list them as directories.
+     */
+    fun scanPresets(): List<String> {
+        val presets = ArrayList<String>()
+        collectPresets(presetsDir, presets)
+        return presets
+    }
+
+    private fun collectPresets(dir: File, into: MutableList<String>) {
+        val names = dir.list() ?: return
+        for (name in names) {
+            val child = File(dir, name)
+            if (name.endsWith(PRESET_EXTENSION, ignoreCase = true)) {
+                into += child.absolutePath
+            } else {
+                collectPresets(child, into)
+            }
+        }
+    }
+
+    private const val PRESET_EXTENSION = ".milk"
 }

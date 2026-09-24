@@ -24,6 +24,7 @@ object ProjectMBridge {
     external fun nativeSetTextureSearchPaths(handle: Long, paths: Array<String>)
     external fun nativeSetPresetDuration(handle: Long, seconds: Double)
     external fun nativeSetSoftCutDuration(handle: Long, seconds: Double)
+    external fun nativeClearPresets(handle: Long)
     external fun nativeAddPresets(handle: Long, paths: Array<String>, allowDuplicates: Boolean): Int
     external fun nativeSetShuffle(handle: Long, shuffle: Boolean)
     external fun nativePlayNext(handle: Long, hardCut: Boolean): Int
@@ -31,6 +32,7 @@ object ProjectMBridge {
     external fun nativeSetPresetLocked(handle: Long, locked: Boolean)
     external fun nativeSetMeshSize(handle: Long, width: Int, height: Int)
     external fun nativeFeedPcmInt16(handle: Long, samples: ShortArray, frameCount: Int, channels: Int)
+    external fun nativeSetThreadAffinity(tids: IntArray, cpus: IntArray): Int
     external fun nativeGetPlaylistPosition(handle: Long): Int
     external fun nativeSetPlaylistPosition(handle: Long, position: Int, hardCut: Boolean): Int
 }

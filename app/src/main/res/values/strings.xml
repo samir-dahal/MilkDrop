@@ -21,5 +21,8 @@
     <string name="quality_low">Quality: Low</string>
     <string name="transition_smooth">Transition: Smooth</string>
     <string name="transition_instant">Transition: Instant</string>
+    <string name="presets_loading">Loading presets…</string>
+    <string name="presets_none_found">No presets found. Add .milk files to MilkDropApp/presets, then reopen the app.</string>
+    <string name="presets_need_access">Allow All files access so the app can read MilkDropApp/presets, then reopen the app.</string>
     <string name="permissions_rationale">MilkDrop needs microphone and storage access to capture audio and load presets. Grant them to continue.</string>
 </resources>
