@@ -18,6 +18,8 @@ The native build compiles `libprojectM` and `libprojectM_playlist` from source (
 git submodule at `native/projectm`, pinned to a released 4.1.x tag) rather than using a
 prebuilt binary, so presets/API stay in sync with that exact version.
 
+For the optimized, installable release APK, see [Docs/RELEASE_BUILD.md](Docs/RELEASE_BUILD.md).
+
 ## Setting up presets
 
 On first launch the app creates two folders on external storage:

@@ -1,11 +1,12 @@
 #include <jni.h>
+#include <android/log.h>
 #include <exception>
 #include <vector>
 
 #include <projectM-4/projectM.h>
+#include <projectM-4/playlist_callbacks.h>
 #include <projectM-4/playlist_core.h>
 #include <projectM-4/playlist_items.h>
-#include <projectM-4/playlist_memory.h>
 #include <projectM-4/playlist_playback.h>
 
 namespace {
@@ -43,6 +44,19 @@ T SafeCallOr(T fallback, Func&& func) {
     }
 }
 
+// Surfaces presets the GLES driver can't compile. Without this, a Next/Prev tap that lands on one
+// just silently retries (up to projectM's retry count) and looks like the button did nothing.
+void OnPresetSwitchFailed(const char* presetFilename, const char* message, void*) {
+    __android_log_print(ANDROID_LOG_WARN, "MilkDropJNI", "Preset failed: %s (%s)",
+                        presetFilename != nullptr ? presetFilename : "?",
+                        message != nullptr ? message : "?");
+}
+
+void OnPresetSwitched(bool isHardCut, unsigned int index, void*) {
+    __android_log_print(ANDROID_LOG_DEBUG, "MilkDropJNI", "Switched to #%u (%s)", index,
+                        isHardCut ? "hard cut" : "soft cut");
+}
+
 } // namespace
 
 extern "C" {
@@ -52,6 +66,8 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeCreate(JNIEnv*, jobject
     auto* handle = new BridgeHandle();
     handle->projectM = projectm_create();
     handle->playlist = projectm_playlist_create(handle->projectM);
+    projectm_playlist_set_preset_switch_failed_event_callback(handle->playlist, &OnPresetSwitchFailed, nullptr);
+    projectm_playlist_set_preset_switched_event_callback(handle->playlist, &OnPresetSwitched, nullptr);
     return reinterpret_cast<jlong>(handle);
 }
 
@@ -157,12 +173,26 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativePlayNext(
     return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_play_next(playlist, hard)); });
 }
 
+// Walks back through the playlist's play history. projectm_playlist_play_previous doesn't: in
+// shuffle mode it just picks another random preset rather than the one shown before.
 JNIEXPORT jint JNICALL
-Java_com_milkdrop_visualizer_render_ProjectMBridge_nativePlayPrevious(
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativePlayLast(
         JNIEnv*, jobject, jlong handlePtr, jboolean hardCut) {
     projectm_playlist_handle playlist = AsHandle(handlePtr)->playlist;
     bool hard = hardCut == JNI_TRUE;
-    return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_play_previous(playlist, hard)); });
+    return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_play_last(playlist, hard)); });
+}
+
+JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetPresetLocked(
+        JNIEnv*, jobject, jlong handlePtr, jboolean locked) {
+    projectm_set_preset_locked(AsHandle(handlePtr)->projectM, locked == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetMeshSize(
+        JNIEnv*, jobject, jlong handlePtr, jint width, jint height) {
+    projectm_set_mesh_size(AsHandle(handlePtr)->projectM, static_cast<size_t>(width), static_cast<size_t>(height));
 }
 
 JNIEXPORT jboolean JNICALL
@@ -182,28 +212,6 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetPlaylistPosition(
     auto pos = static_cast<uint32_t>(position);
     bool hard = hardCut == JNI_TRUE;
     return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_set_position(playlist, pos, hard)); });
-}
-
-JNIEXPORT jobjectArray JNICALL
-Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetPlaylistItems(JNIEnv* env, jobject, jlong handlePtr) {
-    projectm_playlist_handle playlist = AsHandle(handlePtr)->playlist;
-    uint32_t count = projectm_playlist_size(playlist);
-
-    jclass stringClass = env->FindClass("java/lang/String");
-    jobjectArray result = env->NewObjectArray(static_cast<jsize>(count), stringClass, nullptr);
-    if (count == 0) {
-        return result;
-    }
-
-    char** items = projectm_playlist_items(playlist, 0, count);
-    for (uint32_t i = 0; i < count && items[i] != nullptr; ++i) {
-        jstring item = env->NewStringUTF(items[i]);
-        env->SetObjectArrayElement(result, static_cast<jsize>(i), item);
-        env->DeleteLocalRef(item);
-    }
-    projectm_playlist_free_string_array(items);
-
-    return result;
 }
 
 JNIEXPORT void JNICALL

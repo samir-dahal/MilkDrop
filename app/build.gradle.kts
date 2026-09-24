@@ -22,7 +22,11 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags += "-std=c++17"
-                arguments += listOf("-DANDROID_STL=c++_shared")
+                // projectM evaluates every preset's per-frame/per-vertex equations on the CPU and
+                // transpiles its shaders on each preset load; built at -O0 (AGP's default for the
+                // debug variant) that alone makes heavy presets lag and preset switches stall for
+                // hundreds of ms. Always build native code optimized, debug APK or not.
+                arguments += listOf("-DANDROID_STL=c++_shared", "-DCMAKE_BUILD_TYPE=Release")
             }
         }
     }
@@ -30,6 +34,9 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Personal sideloaded app: sign release with the local debug key so the optimized APK
+            // installs directly. Switch to a real keystore before distributing it anywhere.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

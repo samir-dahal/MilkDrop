@@ -30,6 +30,8 @@ import com.milkdrop.visualizer.R
 import com.milkdrop.visualizer.audio.AudioCaptureManager
 import com.milkdrop.visualizer.databinding.ActivityMainBinding
 import com.milkdrop.visualizer.presets.PresetPaths
+import com.milkdrop.visualizer.render.MilkDropRenderer.MeshSize
+import com.milkdrop.visualizer.render.MilkDropRenderer.Navigation
 import com.milkdrop.visualizer.render.MilkDropSurfaceView
 import com.milkdrop.visualizer.settings.AppSettings
 
@@ -51,17 +53,6 @@ class MainActivity : AppCompatActivity() {
 
     private val overlayHandler = Handler(Looper.getMainLooper())
     private val hideOverlayRunnable = Runnable { binding.overlayControls.visibility = View.GONE }
-
-    private val autoAdvanceHandler = Handler(Looper.getMainLooper())
-    private val autoAdvanceRunnable = object : Runnable {
-        override fun run() {
-            if (autoAdvanceEnabled) {
-                val hardCut = hardCutEnabled
-                surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext(hardCut) }
-            }
-            autoAdvanceHandler.postDelayed(this, AUTO_ADVANCE_INTERVAL_MS)
-        }
-    }
 
     private val gestureDetector by lazy {
         GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
@@ -113,7 +104,7 @@ class MainActivity : AppCompatActivity() {
 
         PresetPaths.ensureDirsExist()
 
-        surfaceView = MilkDropSurfaceView(this, PresetPaths.texturesDir, shuffleEnabled)
+        surfaceView = MilkDropSurfaceView(this, PresetPaths.texturesDir)
         binding.surfaceContainer.addView(surfaceView)
         applyRestoredRenderSettings()
 
@@ -138,38 +129,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Restored labels are cosmetic only — actually apply FPS/quality to the renderer. Shuffle is
-     * handled separately: it's passed into MilkDropSurfaceView's constructor and applied directly
-     * inside onSurfaceCreated, since a queueEvent here could race ahead of surface creation (see
-     * MilkDropRenderer's class doc — this raced and crashed once already).
+     * Restored labels are cosmetic only — actually apply the settings. The renderer picks up
+     * this state itself once its GL surface exists (see MilkDropRenderer's class doc).
      */
     private fun applyRestoredRenderSettings() {
-        surfaceView.milkDropRenderer.targetFps = FPS_OPTIONS[fpsIndex]
+        surfaceView.milkDropRenderer.shuffleEnabled = shuffleEnabled
+        surfaceView.milkDropRenderer.autoAdvanceEnabled = autoAdvanceEnabled
+        surfaceView.milkDropRenderer.instantTransitions = hardCutEnabled
+        surfaceView.targetFps = FPS_OPTIONS[fpsIndex]
+        applyQuality()
+    }
+
+    private fun applyQuality() {
         surfaceView.setResolutionScale(QUALITY_SCALES[qualityIndex])
+        surfaceView.milkDropRenderer.meshSize = QUALITY_MESH_SIZES[qualityIndex]
     }
 
     /**
      * Scanning the presets directory (thousands of files across packs) is too slow to do on the
      * GL thread without stalling the first rendered frame — walk it here instead, then hand the
-     * results to the renderer once ready. The renderer shows a blank frame until then.
+     * results to the renderer once ready. projectM shows its idle preset until then.
      */
     private fun scanPresetsInBackground() {
         Thread({
             val paths = PresetPaths.scanPresets()
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.loadScannedPresets(paths) }
+            surfaceView.milkDropRenderer.loadScannedPresets(paths)
         }, "milkdrop-preset-scan").start()
     }
 
     override fun onResume() {
         super.onResume()
         surfaceView.onResume()
-        autoAdvanceHandler.postDelayed(autoAdvanceRunnable, AUTO_ADVANCE_INTERVAL_MS)
     }
 
     override fun onPause() {
         super.onPause()
         surfaceView.onPause()
-        autoAdvanceHandler.removeCallbacks(autoAdvanceRunnable)
     }
 
     override fun onDestroy() {
@@ -192,20 +187,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupOverlay() {
         binding.btnNext.setOnClickListener {
-            val hardCut = hardCutEnabled
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext(hardCut) }
+            surfaceView.milkDropRenderer.requestNavigation(Navigation.Next)
             resetOverlayTimer()
         }
         binding.btnPrevious.setOnClickListener {
-            val hardCut = hardCutEnabled
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.playPrevious(hardCut) }
+            surfaceView.milkDropRenderer.requestNavigation(Navigation.Previous)
             resetOverlayTimer()
         }
         binding.btnShuffle.setOnClickListener {
             shuffleEnabled = !shuffleEnabled
             settings.shuffleEnabled = shuffleEnabled
             binding.btnShuffle.setText(if (shuffleEnabled) R.string.btn_shuffle_on else R.string.btn_shuffle_off)
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.setShuffle(shuffleEnabled) }
+            surfaceView.milkDropRenderer.shuffleEnabled = shuffleEnabled
             resetOverlayTimer()
         }
         binding.btnPlaylist.setOnClickListener { openPlaylistPanel() }
@@ -213,6 +206,7 @@ class MainActivity : AppCompatActivity() {
             autoAdvanceEnabled = !autoAdvanceEnabled
             settings.autoAdvanceEnabled = autoAdvanceEnabled
             binding.btnPlayPause.setText(if (autoAdvanceEnabled) R.string.btn_auto_on else R.string.btn_auto_off)
+            surfaceView.milkDropRenderer.autoAdvanceEnabled = autoAdvanceEnabled
             resetOverlayTimer()
         }
         binding.btnMediaPlayPause.setOnClickListener {
@@ -234,20 +228,21 @@ class MainActivity : AppCompatActivity() {
             fpsIndex = (fpsIndex + 1) % FPS_OPTIONS.size
             settings.fpsIndex = fpsIndex
             binding.btnFps.setText(FPS_LABELS[fpsIndex])
-            surfaceView.milkDropRenderer.targetFps = FPS_OPTIONS[fpsIndex]
+            surfaceView.targetFps = FPS_OPTIONS[fpsIndex]
             resetOverlayTimer()
         }
         binding.btnQuality.setOnClickListener {
             qualityIndex = (qualityIndex + 1) % QUALITY_SCALES.size
             settings.qualityIndex = qualityIndex
             binding.btnQuality.setText(QUALITY_LABELS[qualityIndex])
-            surfaceView.setResolutionScale(QUALITY_SCALES[qualityIndex])
+            applyQuality()
             resetOverlayTimer()
         }
         binding.btnTransition.setOnClickListener {
             hardCutEnabled = !hardCutEnabled
             settings.hardCutEnabled = hardCutEnabled
             binding.btnTransition.setText(if (hardCutEnabled) R.string.transition_instant else R.string.transition_smooth)
+            surfaceView.milkDropRenderer.instantTransitions = hardCutEnabled
             resetOverlayTimer()
         }
     }
@@ -255,8 +250,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupPlaylistPanel() {
         binding.playlistRecyclerView.layoutManager = LinearLayoutManager(this)
         presetAdapter = PresetListAdapter { entry ->
-            val hardCut = hardCutEnabled
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.jumpToPreset(entry.index, hardCut) }
+            surfaceView.milkDropRenderer.requestNavigation(Navigation.JumpTo(entry.index))
             closePlaylistPanel()
         }
         binding.playlistRecyclerView.adapter = presetAdapter
@@ -272,10 +266,10 @@ class MainActivity : AppCompatActivity() {
         binding.playlistPanel.visibility = View.VISIBLE
 
         surfaceView.queueEvent {
-            val items = surfaceView.milkDropRenderer.playlistItems()
             val position = surfaceView.milkDropRenderer.playlistPosition()
-            val entries = items.mapIndexed { index, path -> PresetEntry(index, path) }
             runOnUiThread {
+                val entries = surfaceView.milkDropRenderer.playlistItems()
+                    .mapIndexed { index, path -> PresetEntry(index, path) }
                 allPresetEntries = entries
                 currentPlaylistPosition = position
                 presetAdapter.submit(entries, position)
@@ -382,7 +376,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private companion object {
-        const val AUTO_ADVANCE_INTERVAL_MS = 15000L
         const val OVERLAY_HIDE_DELAY_MS = 3000L
 
         // 0 = uncapped. Index 0 (30fps) is the default performance-friendly setting.
@@ -391,6 +384,8 @@ class MainActivity : AppCompatActivity() {
 
         // Fraction of native resolution to render at; lower cuts fragment shader cost for heavy presets.
         val QUALITY_SCALES = floatArrayOf(1.0f, 0.75f, 0.5f)
+        // Coarser warp mesh at Low: fewer per-vertex equation evaluations on the CPU each frame.
+        val QUALITY_MESH_SIZES = arrayOf(MeshSize.DEFAULT, MeshSize.DEFAULT, MeshSize(24, 18))
         val QUALITY_LABELS = intArrayOf(R.string.quality_high, R.string.quality_medium, R.string.quality_low)
     }
 }
