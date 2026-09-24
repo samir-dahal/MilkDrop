@@ -4,6 +4,7 @@
 #include <projectM-4/projectM.h>
 #include <projectM-4/playlist_core.h>
 #include <projectM-4/playlist_items.h>
+#include <projectM-4/playlist_memory.h>
 #include <projectM-4/playlist_playback.h>
 
 namespace {
@@ -80,6 +81,12 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetPresetDuration(
     projectm_set_preset_duration(AsHandle(handlePtr)->projectM, seconds);
 }
 
+JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetSoftCutDuration(
+        JNIEnv*, jobject, jlong handlePtr, jdouble seconds) {
+    projectm_set_soft_cut_duration(AsHandle(handlePtr)->projectM, seconds);
+}
+
 JNIEXPORT jint JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeAddPlaylistPath(
         JNIEnv* env, jobject, jlong handlePtr, jstring path, jboolean recurse, jboolean allowDuplicates) {
@@ -108,10 +115,44 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativePlayPrevious(
     return static_cast<jint>(projectm_playlist_play_previous(AsHandle(handlePtr)->playlist, hardCut == JNI_TRUE));
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetShuffle(JNIEnv*, jobject, jlong handlePtr) {
+    return projectm_playlist_get_shuffle(AsHandle(handlePtr)->playlist) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jint JNICALL
-Java_com_milkdrop_visualizer_render_ProjectMBridge_nativePlayLast(
-        JNIEnv*, jobject, jlong handlePtr, jboolean hardCut) {
-    return static_cast<jint>(projectm_playlist_play_last(AsHandle(handlePtr)->playlist, hardCut == JNI_TRUE));
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetPlaylistPosition(JNIEnv*, jobject, jlong handlePtr) {
+    return static_cast<jint>(projectm_playlist_get_position(AsHandle(handlePtr)->playlist));
+}
+
+JNIEXPORT jint JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetPlaylistPosition(
+        JNIEnv*, jobject, jlong handlePtr, jint position, jboolean hardCut) {
+    return static_cast<jint>(projectm_playlist_set_position(AsHandle(handlePtr)->playlist,
+                                                             static_cast<uint32_t>(position),
+                                                             hardCut == JNI_TRUE));
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetPlaylistItems(JNIEnv* env, jobject, jlong handlePtr) {
+    projectm_playlist_handle playlist = AsHandle(handlePtr)->playlist;
+    uint32_t count = projectm_playlist_size(playlist);
+
+    jclass stringClass = env->FindClass("java/lang/String");
+    jobjectArray result = env->NewObjectArray(static_cast<jsize>(count), stringClass, nullptr);
+    if (count == 0) {
+        return result;
+    }
+
+    char** items = projectm_playlist_items(playlist, 0, count);
+    for (uint32_t i = 0; i < count && items[i] != nullptr; ++i) {
+        jstring item = env->NewStringUTF(items[i]);
+        env->SetObjectArrayElement(result, static_cast<jsize>(i), item);
+        env->DeleteLocalRef(item);
+    }
+    projectm_playlist_free_string_array(items);
+
+    return result;
 }
 
 JNIEXPORT void JNICALL

@@ -13,7 +13,7 @@ class AudioCaptureManager(
 ) {
     enum class SourceType { INTERNAL, MIC }
 
-    var currentSource: SourceType = SourceType.INTERNAL
+    var currentSource: SourceType = SourceType.MIC
         private set
 
     private var micSource: MicAudioSource? = null

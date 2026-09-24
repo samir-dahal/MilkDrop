@@ -18,14 +18,24 @@ class MilkDropRenderer(
     var handle: Long = 0L
         private set
 
-    private var shuffleMode = true
+    /** 0 means uncapped. Read/written from different threads, hence volatile — no locking needed for a single primitive. */
+    @Volatile
+    var targetFps: Int = DEFAULT_TARGET_FPS
+        set(value) {
+            field = value
+            targetFrameIntervalNanos = if (value <= 0) 0L else 1_000_000_000L / value
+        }
+
+    @Volatile
+    private var targetFrameIntervalNanos: Long = 1_000_000_000L / DEFAULT_TARGET_FPS
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         handle = ProjectMBridge.nativeCreate()
         ProjectMBridge.nativeSetTextureSearchPaths(handle, arrayOf(texturesDir.absolutePath))
         ProjectMBridge.nativeSetPresetDuration(handle, DEFAULT_PRESET_DURATION_SECONDS)
+        ProjectMBridge.nativeSetSoftCutDuration(handle, SOFT_CUT_DURATION_SECONDS)
         ProjectMBridge.nativeAddPlaylistPath(handle, presetsDir.absolutePath, true, false)
-        ProjectMBridge.nativeSetShuffle(handle, shuffleMode)
+        ProjectMBridge.nativeSetShuffle(handle, true)
         ProjectMBridge.nativePlayNext(handle, false)
     }
 
@@ -34,31 +44,41 @@ class MilkDropRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        val frameStartNanos = System.nanoTime()
         ProjectMBridge.nativeRenderFrame(handle)
+
+        val intervalNanos = targetFrameIntervalNanos
+        if (intervalNanos > 0) {
+            val remainingNanos = intervalNanos - (System.nanoTime() - frameStartNanos)
+            if (remainingNanos > 0) {
+                try {
+                    Thread.sleep(remainingNanos / 1_000_000, (remainingNanos % 1_000_000).toInt())
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+            }
+        }
     }
 
     fun playNext() {
-        shuffleMode = false
-        ProjectMBridge.nativeSetShuffle(handle, shuffleMode)
         ProjectMBridge.nativePlayNext(handle, false)
     }
 
     fun playPrevious() {
-        shuffleMode = false
-        ProjectMBridge.nativeSetShuffle(handle, shuffleMode)
         ProjectMBridge.nativePlayPrevious(handle, false)
     }
 
-    fun playRandom() {
-        shuffleMode = true
-        ProjectMBridge.nativeSetShuffle(handle, shuffleMode)
-        ProjectMBridge.nativePlayNext(handle, false)
+    fun setShuffle(enabled: Boolean) {
+        ProjectMBridge.nativeSetShuffle(handle, enabled)
     }
 
-    fun autoAdvance() {
-        ProjectMBridge.nativeSetShuffle(handle, shuffleMode)
-        ProjectMBridge.nativePlayNext(handle, false)
+    fun playlistPosition(): Int = ProjectMBridge.nativeGetPlaylistPosition(handle)
+
+    fun jumpToPreset(position: Int) {
+        ProjectMBridge.nativeSetPlaylistPosition(handle, position, false)
     }
+
+    fun playlistItems(): Array<String> = ProjectMBridge.nativeGetPlaylistItems(handle)
 
     fun feedPcm(samples: ShortArray, frameCount: Int, channels: Int) {
         val currentHandle = handle
@@ -77,5 +97,7 @@ class MilkDropRenderer(
 
     private companion object {
         const val DEFAULT_PRESET_DURATION_SECONDS = 15.0
+        const val SOFT_CUT_DURATION_SECONDS = 1.5
+        const val DEFAULT_TARGET_FPS = 30
     }
 }

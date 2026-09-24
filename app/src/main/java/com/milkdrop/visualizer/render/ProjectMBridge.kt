@@ -23,10 +23,13 @@ object ProjectMBridge {
     external fun nativeRenderFrame(handle: Long)
     external fun nativeSetTextureSearchPaths(handle: Long, paths: Array<String>)
     external fun nativeSetPresetDuration(handle: Long, seconds: Double)
+    external fun nativeSetSoftCutDuration(handle: Long, seconds: Double)
     external fun nativeAddPlaylistPath(handle: Long, path: String, recurse: Boolean, allowDuplicates: Boolean): Int
     external fun nativeSetShuffle(handle: Long, shuffle: Boolean)
     external fun nativePlayNext(handle: Long, hardCut: Boolean): Int
     external fun nativePlayPrevious(handle: Long, hardCut: Boolean): Int
-    external fun nativePlayLast(handle: Long, hardCut: Boolean): Int
     external fun nativeFeedPcmInt16(handle: Long, samples: ShortArray, frameCount: Int, channels: Int)
+    external fun nativeGetPlaylistPosition(handle: Long): Int
+    external fun nativeSetPlaylistPosition(handle: Long, position: Int, hardCut: Boolean): Int
+    external fun nativeGetPlaylistItems(handle: Long): Array<String>
 }

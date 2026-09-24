@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -11,7 +12,11 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
+import android.view.GestureDetector
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -19,19 +24,28 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.widget.doAfterTextChanged
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.milkdrop.visualizer.R
 import com.milkdrop.visualizer.audio.AudioCaptureManager
 import com.milkdrop.visualizer.databinding.ActivityMainBinding
 import com.milkdrop.visualizer.presets.PresetPaths
 import com.milkdrop.visualizer.render.MilkDropSurfaceView
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var surfaceView: MilkDropSurfaceView
     private lateinit var audioCaptureManager: AudioCaptureManager
+    private lateinit var presetAdapter: PresetListAdapter
 
     private var autoAdvanceEnabled = true
+    private var shuffleEnabled = true
+    private var allPresetEntries: List<PresetEntry> = emptyList()
+    private var currentPlaylistPosition = 0
+    private var fpsIndex = 0
+    private var qualityIndex = 0
 
     private val overlayHandler = Handler(Looper.getMainLooper())
     private val hideOverlayRunnable = Runnable { binding.overlayControls.visibility = View.GONE }
@@ -40,10 +54,46 @@ class MainActivity : AppCompatActivity() {
     private val autoAdvanceRunnable = object : Runnable {
         override fun run() {
             if (autoAdvanceEnabled) {
-                surfaceView.queueEvent { surfaceView.milkDropRenderer.autoAdvance() }
+                surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext() }
             }
             autoAdvanceHandler.postDelayed(this, AUTO_ADVANCE_INTERVAL_MS)
         }
+    }
+
+    private val gestureDetector by lazy {
+        GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean {
+                return true
+            }
+
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                toggleOverlay()
+                return true
+            }
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                hideAllUi()
+                return true
+            }
+
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                val startX = e1?.x ?: return false
+                val deltaX = e2.x - startX
+                val deltaY = e2.y - e1.y
+                if (abs(deltaX) > SWIPE_DISTANCE_THRESHOLD_PX &&
+                    abs(deltaX) > abs(deltaY) &&
+                    abs(velocityX) > SWIPE_VELOCITY_THRESHOLD
+                ) {
+                    if (deltaX < 0) {
+                        surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext() }
+                    } else {
+                        surfaceView.queueEvent { surfaceView.milkDropRenderer.playPrevious() }
+                    }
+                    return true
+                }
+                return false
+            }
+        })
     }
 
     private val screenCaptureLauncher =
@@ -58,7 +108,7 @@ class MainActivity : AppCompatActivity() {
 
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            requestInternalCapture()
+            switchToMic()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,7 +127,9 @@ class MainActivity : AppCompatActivity() {
             surfaceView.milkDropRenderer.feedPcm(samples, frameCount, channels)
         }
 
+        setupGestures()
         setupOverlay()
+        setupPlaylistPanel()
         requestPermissionsThenStartAudio()
     }
 
@@ -107,9 +159,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupOverlay() {
-        surfaceView.setOnClickListener { toggleOverlay() }
+    private fun setupGestures() {
+        surfaceView.setOnTouchListener { _, event -> gestureDetector.onTouchEvent(event) }
+    }
 
+    private fun setupOverlay() {
         binding.btnNext.setOnClickListener {
             surfaceView.queueEvent { surfaceView.milkDropRenderer.playNext() }
             resetOverlayTimer()
@@ -118,12 +172,20 @@ class MainActivity : AppCompatActivity() {
             surfaceView.queueEvent { surfaceView.milkDropRenderer.playPrevious() }
             resetOverlayTimer()
         }
-        binding.btnRandom.setOnClickListener {
-            surfaceView.queueEvent { surfaceView.milkDropRenderer.playRandom() }
+        binding.btnShuffle.setOnClickListener {
+            shuffleEnabled = !shuffleEnabled
+            binding.btnShuffle.setText(if (shuffleEnabled) R.string.btn_shuffle_on else R.string.btn_shuffle_off)
+            surfaceView.queueEvent { surfaceView.milkDropRenderer.setShuffle(shuffleEnabled) }
             resetOverlayTimer()
         }
+        binding.btnPlaylist.setOnClickListener { openPlaylistPanel() }
         binding.btnPlayPause.setOnClickListener {
             autoAdvanceEnabled = !autoAdvanceEnabled
+            binding.btnPlayPause.setText(if (autoAdvanceEnabled) R.string.btn_auto_on else R.string.btn_auto_off)
+            resetOverlayTimer()
+        }
+        binding.btnMediaPlayPause.setOnClickListener {
+            dispatchMediaPlayPause()
             resetOverlayTimer()
         }
         binding.btnAudioSource.setOnClickListener {
@@ -136,6 +198,64 @@ class MainActivity : AppCompatActivity() {
             }
             resetOverlayTimer()
         }
+        binding.btnFps.setOnClickListener {
+            fpsIndex = (fpsIndex + 1) % FPS_OPTIONS.size
+            binding.btnFps.setText(FPS_LABELS[fpsIndex])
+            surfaceView.milkDropRenderer.targetFps = FPS_OPTIONS[fpsIndex]
+            resetOverlayTimer()
+        }
+        binding.btnQuality.setOnClickListener {
+            qualityIndex = (qualityIndex + 1) % QUALITY_SCALES.size
+            binding.btnQuality.setText(QUALITY_LABELS[qualityIndex])
+            surfaceView.setResolutionScale(QUALITY_SCALES[qualityIndex])
+            resetOverlayTimer()
+        }
+    }
+
+    private fun setupPlaylistPanel() {
+        binding.playlistRecyclerView.layoutManager = LinearLayoutManager(this)
+        presetAdapter = PresetListAdapter { entry ->
+            surfaceView.queueEvent { surfaceView.milkDropRenderer.jumpToPreset(entry.index) }
+            closePlaylistPanel()
+        }
+        binding.playlistRecyclerView.adapter = presetAdapter
+
+        binding.btnClosePlaylist.setOnClickListener { closePlaylistPanel() }
+        binding.playlistSearch.doAfterTextChanged { filterPresetList(it?.toString().orEmpty()) }
+    }
+
+    private fun openPlaylistPanel() {
+        binding.overlayControls.visibility = View.GONE
+        overlayHandler.removeCallbacks(hideOverlayRunnable)
+        binding.playlistSearch.setText("")
+        binding.playlistPanel.visibility = View.VISIBLE
+
+        surfaceView.queueEvent {
+            val items = surfaceView.milkDropRenderer.playlistItems()
+            val position = surfaceView.milkDropRenderer.playlistPosition()
+            val entries = items.mapIndexed { index, path -> PresetEntry(index, path) }
+            runOnUiThread {
+                allPresetEntries = entries
+                currentPlaylistPosition = position
+                presetAdapter.submit(entries, position)
+                if (entries.isNotEmpty()) {
+                    binding.playlistRecyclerView.scrollToPosition(position.coerceIn(0, entries.size - 1))
+                }
+            }
+        }
+    }
+
+    private fun closePlaylistPanel() {
+        binding.playlistPanel.visibility = View.GONE
+    }
+
+    private fun filterPresetList(query: String) {
+        val filtered = if (query.isBlank()) {
+            allPresetEntries
+        } else {
+            allPresetEntries.filter { it.path.contains(query, ignoreCase = true) }
+        }
+        presetAdapter.submit(filtered, currentPlaylistPosition)
     }
 
     private fun toggleOverlay() {
@@ -148,9 +268,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun hideAllUi() {
+        binding.overlayControls.visibility = View.GONE
+        binding.playlistPanel.visibility = View.GONE
+        overlayHandler.removeCallbacks(hideOverlayRunnable)
+    }
+
     private fun resetOverlayTimer() {
         overlayHandler.removeCallbacks(hideOverlayRunnable)
         overlayHandler.postDelayed(hideOverlayRunnable, OVERLAY_HIDE_DELAY_MS)
+    }
+
+    private fun dispatchMediaPlayPause() {
+        val audioManager = getSystemService(AudioManager::class.java)
+        val eventTime = SystemClock.uptimeMillis()
+        audioManager.dispatchMediaKeyEvent(
+            KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, 0)
+        )
+        audioManager.dispatchMediaKeyEvent(
+            KeyEvent(eventTime, eventTime, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, 0)
+        )
     }
 
     private fun requestPermissionsThenStartAudio() {
@@ -179,7 +316,7 @@ class MainActivity : AppCompatActivity() {
         if (needed.isNotEmpty()) {
             permissionsLauncher.launch(needed.toTypedArray())
         } else {
-            requestInternalCapture()
+            switchToMic()
         }
     }
 
@@ -196,5 +333,15 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         const val AUTO_ADVANCE_INTERVAL_MS = 15000L
         const val OVERLAY_HIDE_DELAY_MS = 3000L
+        const val SWIPE_DISTANCE_THRESHOLD_PX = 120
+        const val SWIPE_VELOCITY_THRESHOLD = 200
+
+        // 0 = uncapped. Index 0 (30fps) is the default performance-friendly setting.
+        val FPS_OPTIONS = intArrayOf(30, 45, 60, 0)
+        val FPS_LABELS = intArrayOf(R.string.fps_30, R.string.fps_45, R.string.fps_60, R.string.fps_uncapped)
+
+        // Fraction of native resolution to render at; lower cuts fragment shader cost for heavy presets.
+        val QUALITY_SCALES = floatArrayOf(1.0f, 0.75f, 0.5f)
+        val QUALITY_LABELS = intArrayOf(R.string.quality_high, R.string.quality_medium, R.string.quality_low)
     }
 }

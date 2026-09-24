@@ -1,11 +1,23 @@
 <resources>
     <string name="app_name">MilkDrop</string>
     <string name="btn_next">Next</string>
-    <string name="btn_previous">Previous</string>
-    <string name="btn_random">Random</string>
-    <string name="btn_play_pause">Auto</string>
-    <string name="btn_audio_source">Source: Internal</string>
+    <string name="btn_previous">Prev</string>
+    <string name="btn_shuffle_on">Shuffle: On</string>
+    <string name="btn_shuffle_off">Shuffle: Off</string>
+    <string name="btn_auto_on">Auto: On</string>
+    <string name="btn_auto_off">Auto: Off</string>
+    <string name="btn_playlist">List</string>
+    <string name="btn_media_play_pause">Media</string>
     <string name="audio_source_internal">Source: Internal</string>
     <string name="audio_source_mic">Source: Mic</string>
+    <string name="playlist_search_hint">Search presets…</string>
+    <string name="playlist_close">Close</string>
+    <string name="fps_30">FPS: 30</string>
+    <string name="fps_45">FPS: 45</string>
+    <string name="fps_60">FPS: 60</string>
+    <string name="fps_uncapped">FPS: Uncapped</string>
+    <string name="quality_high">Quality: High</string>
+    <string name="quality_medium">Quality: Medium</string>
+    <string name="quality_low">Quality: Low</string>
     <string name="permissions_rationale">MilkDrop needs microphone and storage access to capture audio and load presets. Grant them to continue.</string>
 </resources>
