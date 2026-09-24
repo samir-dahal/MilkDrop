@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <exception>
 #include <vector>
 
 #include <projectM-4/projectM.h>
@@ -16,6 +17,30 @@ struct BridgeHandle {
 
 BridgeHandle* AsHandle(jlong handle) {
     return reinterpret_cast<BridgeHandle*>(handle);
+}
+
+// projectM's C API is not always exception-safe at its own boundary — e.g. loading "idle://"
+// while the connected playlist is empty throws libprojectM::Playlist::PlaylistEmptyException
+// straight through, which otherwise aborts the whole process. Preset operations run on every
+// button tap and off a background scan, so one bad state shouldn't be able to crash the app.
+template <typename Func>
+void SafeCall(Func&& func) {
+    try {
+        func();
+    } catch (const std::exception&) {
+    } catch (...) {
+    }
+}
+
+template <typename T, typename Func>
+T SafeCallOr(T fallback, Func&& func) {
+    try {
+        return func();
+    } catch (const std::exception&) {
+        return fallback;
+    } catch (...) {
+        return fallback;
+    }
 }
 
 } // namespace
@@ -51,13 +76,15 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetWindowSize(
 
 JNIEXPORT void JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeRenderFrame(JNIEnv*, jobject, jlong handlePtr) {
-    projectm_opengl_render_frame(AsHandle(handlePtr)->projectM);
+    projectm_handle projectM = AsHandle(handlePtr)->projectM;
+    SafeCall([&] { projectm_opengl_render_frame(projectM); });
 }
 
 JNIEXPORT void JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetTextureSearchPaths(
         JNIEnv* env, jobject, jlong handlePtr, jobjectArray paths) {
     jsize count = env->GetArrayLength(paths);
+    env->EnsureLocalCapacity(count + 16);
     std::vector<jstring> jstrings(count);
     std::vector<const char*> cstrings(count);
     for (jsize i = 0; i < count; ++i) {
@@ -88,13 +115,32 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetSoftCutDuration(
 }
 
 JNIEXPORT jint JNICALL
-Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeAddPlaylistPath(
-        JNIEnv* env, jobject, jlong handlePtr, jstring path, jboolean recurse, jboolean allowDuplicates) {
-    const char* cpath = env->GetStringUTFChars(path, nullptr);
-    uint32_t count = projectm_playlist_add_path(AsHandle(handlePtr)->playlist, cpath,
-                                                 recurse == JNI_TRUE, allowDuplicates == JNI_TRUE);
-    env->ReleaseStringUTFChars(path, cpath);
-    return static_cast<jint>(count);
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeAddPresets(
+        JNIEnv* env, jobject, jlong handlePtr, jobjectArray paths, jboolean allowDuplicates) {
+    jsize count = env->GetArrayLength(paths);
+    env->EnsureLocalCapacity(count + 16);
+    std::vector<jstring> jstrings(count);
+    std::vector<const char*> cstrings(count);
+    for (jsize i = 0; i < count; ++i) {
+        auto path = static_cast<jstring>(env->GetObjectArrayElement(paths, i));
+        jstrings[i] = path;
+        cstrings[i] = env->GetStringUTFChars(path, nullptr);
+    }
+
+    projectm_playlist_handle playlist = AsHandle(handlePtr)->playlist;
+    const char** cstringsData = cstrings.data();
+    auto presetCount = static_cast<uint32_t>(count);
+    bool allowDup = allowDuplicates == JNI_TRUE;
+    uint32_t added = SafeCallOr<uint32_t>(0, [&] {
+        return projectm_playlist_add_presets(playlist, cstringsData, presetCount, allowDup);
+    });
+
+    for (jsize i = 0; i < count; ++i) {
+        env->ReleaseStringUTFChars(jstrings[i], cstrings[i]);
+        env->DeleteLocalRef(jstrings[i]);
+    }
+
+    return static_cast<jint>(added);
 }
 
 JNIEXPORT void JNICALL
@@ -106,13 +152,17 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetShuffle(
 JNIEXPORT jint JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativePlayNext(
         JNIEnv*, jobject, jlong handlePtr, jboolean hardCut) {
-    return static_cast<jint>(projectm_playlist_play_next(AsHandle(handlePtr)->playlist, hardCut == JNI_TRUE));
+    projectm_playlist_handle playlist = AsHandle(handlePtr)->playlist;
+    bool hard = hardCut == JNI_TRUE;
+    return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_play_next(playlist, hard)); });
 }
 
 JNIEXPORT jint JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativePlayPrevious(
         JNIEnv*, jobject, jlong handlePtr, jboolean hardCut) {
-    return static_cast<jint>(projectm_playlist_play_previous(AsHandle(handlePtr)->playlist, hardCut == JNI_TRUE));
+    projectm_playlist_handle playlist = AsHandle(handlePtr)->playlist;
+    bool hard = hardCut == JNI_TRUE;
+    return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_play_previous(playlist, hard)); });
 }
 
 JNIEXPORT jboolean JNICALL
@@ -128,9 +178,10 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetPlaylistPosition(JNI
 JNIEXPORT jint JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetPlaylistPosition(
         JNIEnv*, jobject, jlong handlePtr, jint position, jboolean hardCut) {
-    return static_cast<jint>(projectm_playlist_set_position(AsHandle(handlePtr)->playlist,
-                                                             static_cast<uint32_t>(position),
-                                                             hardCut == JNI_TRUE));
+    projectm_playlist_handle playlist = AsHandle(handlePtr)->playlist;
+    auto pos = static_cast<uint32_t>(position);
+    bool hard = hardCut == JNI_TRUE;
+    return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_set_position(playlist, pos, hard)); });
 }
 
 JNIEXPORT jobjectArray JNICALL

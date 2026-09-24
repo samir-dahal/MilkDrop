@@ -24,7 +24,7 @@ object ProjectMBridge {
     external fun nativeSetTextureSearchPaths(handle: Long, paths: Array<String>)
     external fun nativeSetPresetDuration(handle: Long, seconds: Double)
     external fun nativeSetSoftCutDuration(handle: Long, seconds: Double)
-    external fun nativeAddPlaylistPath(handle: Long, path: String, recurse: Boolean, allowDuplicates: Boolean): Int
+    external fun nativeAddPresets(handle: Long, paths: Array<String>, allowDuplicates: Boolean): Int
     external fun nativeSetShuffle(handle: Long, shuffle: Boolean)
     external fun nativePlayNext(handle: Long, hardCut: Boolean): Int
     external fun nativePlayPrevious(handle: Long, hardCut: Boolean): Int

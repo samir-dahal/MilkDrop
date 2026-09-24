@@ -120,7 +120,7 @@ class MainActivity : AppCompatActivity() {
 
         PresetPaths.ensureDirsExist()
 
-        surfaceView = MilkDropSurfaceView(this, PresetPaths.presetsDir, PresetPaths.texturesDir)
+        surfaceView = MilkDropSurfaceView(this, PresetPaths.texturesDir)
         binding.surfaceContainer.addView(surfaceView)
 
         audioCaptureManager = AudioCaptureManager(this) { samples, frameCount, channels ->
@@ -131,6 +131,19 @@ class MainActivity : AppCompatActivity() {
         setupOverlay()
         setupPlaylistPanel()
         requestPermissionsThenStartAudio()
+        scanPresetsInBackground()
+    }
+
+    /**
+     * Scanning the presets directory (thousands of files across packs) is too slow to do on the
+     * GL thread without stalling the first rendered frame — walk it here instead, then hand the
+     * results to the renderer once ready. The idle preset loaded in onSurfaceCreated covers the gap.
+     */
+    private fun scanPresetsInBackground() {
+        Thread({
+            val paths = PresetPaths.scanPresets()
+            surfaceView.queueEvent { surfaceView.milkDropRenderer.loadScannedPresets(paths) }
+        }, "milkdrop-preset-scan").start()
     }
 
     override fun onResume() {

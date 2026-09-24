@@ -23,4 +23,11 @@ object PresetPaths {
         presetsDir.mkdirs()
         texturesDir.mkdirs()
     }
+
+    /** Blocking recursive filesystem walk — call from a background thread, not the GL or UI thread. */
+    fun scanPresets(): List<String> =
+        presetsDir.walkTopDown()
+            .filter { it.isFile && it.extension.equals("milk", ignoreCase = true) }
+            .map { it.absolutePath }
+            .toList()
 }

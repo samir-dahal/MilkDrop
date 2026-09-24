@@ -10,7 +10,6 @@ import javax.microedition.khronos.opengles.GL10
  * callers outside the renderer should wrap calls in `GLSurfaceView.queueEvent { ... }`.
  */
 class MilkDropRenderer(
-    private val presetsDir: File,
     private val texturesDir: File,
 ) : GLSurfaceView.Renderer {
 
@@ -34,9 +33,19 @@ class MilkDropRenderer(
         ProjectMBridge.nativeSetTextureSearchPaths(handle, arrayOf(texturesDir.absolutePath))
         ProjectMBridge.nativeSetPresetDuration(handle, DEFAULT_PRESET_DURATION_SECONDS)
         ProjectMBridge.nativeSetSoftCutDuration(handle, SOFT_CUT_DURATION_SECONDS)
-        ProjectMBridge.nativeAddPlaylistPath(handle, presetsDir.absolutePath, true, false)
         ProjectMBridge.nativeSetShuffle(handle, true)
-        ProjectMBridge.nativePlayNext(handle, false)
+        // No preset loaded yet — projectM renders a blank frame until the background
+        // filesystem scan (thousands of files) hands off results; see loadScannedPresets().
+        // ("idle://" looked like a natural placeholder, but it requires a non-empty connected
+        // playlist and throws otherwise, so it can't be used at this point.)
+    }
+
+    /** Called once the caller has finished scanning the presets directory on a background thread. */
+    fun loadScannedPresets(paths: List<String>) {
+        if (paths.isNotEmpty()) {
+            ProjectMBridge.nativeAddPresets(handle, paths.toTypedArray(), false)
+            ProjectMBridge.nativePlayNext(handle, false)
+        }
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
