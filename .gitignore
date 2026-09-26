@@ -25,3 +25,7 @@ native/projectm/build/
 # Local staging area for downloaded preset/texture packs (pushed to device via adb,
 # not part of the app's source tree)
 /Presets/
+/Artifacts/
+
+# Personal work tracker (local notes, not part of the repo)
+/Docs/TRACKING.md
