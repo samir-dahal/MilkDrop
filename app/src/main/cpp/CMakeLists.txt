@@ -277,11 +277,39 @@ foreach(STAGE FILE_NAME IN ZIP_LISTS SHADER_STAGES SHADER_STAGE_FILES)
     )
 endforeach()
 
-# MilkDrop 3 gives preset shaders get_fft(pos) and get_fft_hz(freq): the spectrum level (0-1) at a
-# position along 0-22 kHz, or at a frequency. projectM has no such input, so presets using them
-# (MD3's equalizers) failed to compile. Our own implementation: the spectrum, reduced to 128 levels
-# with a quick fall-off, is uploaded each frame as a uniform array, and the functions read it.
+# MilkDrop 3 additions to preset shaders (one call: each call re-reads the original file):
+# - get_fft(pos) and get_fft_hz(freq): the spectrum level (0-1) at a position along 0-22 kHz, or at
+#   a frequency. projectM has no such input, so presets using them (MD3's equalizers) failed to
+#   compile. Our own implementation: the spectrum, reduced to 128 levels with a quick fall-off, is
+#   uploaded each frame as a uniform array, and the functions read it.
+# - Samplers declared by the texture's plain name ("sampler MilkDrop3_001;"). projectM only binds
+#   names starting with "sampler_", so these are renamed to that form before anything else.
 patch_projectm_source(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader.cpp
+    [=[using libprojectM::MilkdropPreset::MilkdropStaticShaders;]=]
+    [=[using libprojectM::MilkdropPreset::MilkdropStaticShaders;
+
+// Renames samplers declared by a plain texture name ("sampler MilkDrop3_001;"), and their uses, to
+// the "sampler_" form projectM binds textures to.
+static void PrefixPlainSamplerNames(std::string& program)
+{
+    static const std::regex plainSamplerDeclaration(R"(\bsampler(?:2D|3D)?\s+([A-Za-z_]\w*)\s*;)");
+    std::set<std::string> plainNames;
+    for (std::sregex_iterator it(program.begin(), program.end(), plainSamplerDeclaration), end; it != end; ++it)
+    {
+        std::string const name = (*it)[1];
+        if (Utils::ToLower(name).rfind("sampler_", 0) != 0)
+        {
+            plainNames.insert(name);
+        }
+    }
+    for (const auto& name : plainNames)
+    {
+        program = std::regex_replace(program, std::regex("\\b" + name + "\\b"), "sampler_" + name);
+    }
+}]=]
+    [=[    GetReferencedSamplers(m_preprocessedCode);]=]
+    [=[    PrefixPlainSamplerNames(m_preprocessedCode);
+    GetReferencedSamplers(m_preprocessedCode);]=]
     [=[static auto floatRand = ]=]
     [=[static constexpr int FftLevelCount = 128;
 static constexpr float FftLevelGain = 1.0f;
