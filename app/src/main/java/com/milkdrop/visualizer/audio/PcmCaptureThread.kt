@@ -4,11 +4,16 @@ import android.annotation.SuppressLint
 import android.media.AudioRecord
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Reads PCM16 frames from an already-built, unstarted [AudioRecord] on a dedicated thread. */
+/**
+ * Reads PCM16 frames from an already-built, unstarted [AudioRecord] on a dedicated thread.
+ *
+ * Reads are small (~10 ms of audio): each read blocks until it's full, so the read size is how
+ * stale the newest audio can be and how often the visuals get any. Sizing it from
+ * AudioRecord.getMinBufferSize (bytes, mistaken for samples) made it ~80 ms.
+ */
 internal class PcmCaptureThread(
     private val audioRecord: AudioRecord,
     private val channels: Int,
-    private val bufferSizeInShorts: Int,
     private val sink: PcmSink,
 ) {
     private val running = AtomicBoolean(false)
@@ -19,7 +24,7 @@ internal class PcmCaptureThread(
         if (!running.compareAndSet(false, true)) return
         audioRecord.startRecording()
         val readThread = Thread({
-            val buffer = ShortArray(bufferSizeInShorts)
+            val buffer = ShortArray(audioRecord.sampleRate / READS_PER_SECOND * channels)
             while (running.get()) {
                 val read = audioRecord.read(buffer, 0, buffer.size)
                 if (read > 0) {
@@ -38,5 +43,9 @@ internal class PcmCaptureThread(
         thread = null
         audioRecord.stop()
         audioRecord.release()
+    }
+
+    private companion object {
+        const val READS_PER_SECOND = 100
     }
 }

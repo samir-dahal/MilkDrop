@@ -27,7 +27,7 @@ class AudioCaptureManager(
 
     fun startMic() {
         stopInternal()
-        val source = MicAudioSource(pcmSink)
+        val source = MicAudioSource(context, pcmSink)
         micSource = source
         source.start()
     }

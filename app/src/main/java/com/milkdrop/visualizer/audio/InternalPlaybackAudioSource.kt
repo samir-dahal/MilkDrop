@@ -43,7 +43,7 @@ class InternalPlaybackAudioSource(
             .setBufferSizeInBytes(minBufferSize * 2)
             .build()
 
-        val thread = PcmCaptureThread(audioRecord, CHANNELS, minBufferSize, sink)
+        val thread = PcmCaptureThread(audioRecord, CHANNELS, sink)
         captureThread = thread
         thread.start()
     }
