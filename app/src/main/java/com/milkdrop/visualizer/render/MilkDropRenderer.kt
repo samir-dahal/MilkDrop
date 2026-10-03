@@ -97,6 +97,9 @@ class MilkDropRenderer(
 
     private var lastReportedPosition = -1
 
+    private val frameRateMeter = FrameRateMeter()
+    private var reportedFps = 0
+
     /** Guards [handle] against being destroyed while the audio thread is mid-[feedPcm]. */
     private val pcmLock = Any()
 
@@ -118,6 +121,8 @@ class MilkDropRenderer(
         // built-in idle preset.
         loadedPaths = null
         lastReportedPosition = -1
+        frameRateMeter.reset()
+        reportedFps = 0
         applyPendingState()
     }
 
@@ -138,11 +143,25 @@ class MilkDropRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        performanceHints.onFrameStart(System.nanoTime())
+        val frameStartNanos = System.nanoTime()
+        performanceHints.onFrameStart(frameStartNanos)
         applyPendingState()
+        reportFrameRate(frameStartNanos)
         ProjectMBridge.nativeRenderFrame(handle)
         reportPresetChange()
         performanceHints.onFrameEnd(System.nanoTime())
+    }
+
+    /**
+     * projectM doesn't measure the frame rate itself: without this, presets always saw its default
+     * (35), and those that scale motion by `fps` ran too fast at higher frame rates.
+     */
+    private fun reportFrameRate(nowNanos: Long) {
+        val fps = frameRateMeter.onFrame(nowNanos) ?: return
+        if (fps != reportedFps && handle != 0L) {
+            ProjectMBridge.nativeSetFps(handle, fps)
+            reportedFps = fps
+        }
     }
 
     /** Covers auto-advance too, which projectM does internally without going through [navigate]. */

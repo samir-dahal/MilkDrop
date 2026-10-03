@@ -127,6 +127,12 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetPresetDuration(
 }
 
 JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetFps(
+        JNIEnv*, jobject, jlong handlePtr, jint fps) {
+    projectm_set_fps(AsHandle(handlePtr)->projectM, fps);
+}
+
+JNIEXPORT void JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetSoftCutDuration(
         JNIEnv*, jobject, jlong handlePtr, jdouble seconds) {
     projectm_set_soft_cut_duration(AsHandle(handlePtr)->projectM, seconds);
