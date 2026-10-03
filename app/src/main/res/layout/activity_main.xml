@@ -73,6 +73,13 @@
                 android:textColor="@color/toggle_content"
                 app:drawableTint="@color/toggle_content" />
 
+            <!-- Filled heart (activated) when the playing preset is a favourite. -->
+            <TextView
+                android:id="@+id/btnFavourite"
+                style="@style/ControlButton"
+                app:drawableTopCompat="@drawable/ic_favourite"
+                android:text="@string/btn_favourite" />
+
             <TextView
                 android:id="@+id/btnPlaylist"
                 style="@style/ControlButton"
@@ -366,6 +373,23 @@
                 android:textColor="#FFFFFF"
                 android:textColorHint="#888888"
                 android:hint="@string/playlist_search_hint" />
+
+            <!-- Shows only favourites when activated. -->
+            <TextView
+                android:id="@+id/btnFavouritesOnly"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="10dp"
+                android:drawablePadding="6dp"
+                android:text="@string/playlist_favourites_only"
+                android:textSize="14sp"
+                android:textColor="@color/toggle_content"
+                app:drawableStartCompat="@drawable/ic_favourite"
+                app:drawableTint="@color/toggle_content"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground" />
 
             <Button
                 android:id="@+id/btnClosePlaylist"

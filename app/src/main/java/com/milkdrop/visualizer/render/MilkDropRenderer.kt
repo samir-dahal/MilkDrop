@@ -272,17 +272,6 @@ class MilkDropRenderer(
         Log.d(TAG, "$navigation -> #$position loaded in ${SystemClock.elapsedRealtime() - startMs} ms")
     }
 
-    fun playlistPosition(): Int {
-        val currentHandle = handle
-        return if (currentHandle != 0L) ProjectMBridge.nativeGetPlaylistPosition(currentHandle) else 0
-    }
-
-    /**
-     * Same order as projectM's playlist (added verbatim, no filter or de-duplication), so any thread
-     * can read it without copying ~15k strings back across JNI on the GL thread.
-     */
-    fun playlistItems(): List<String> = loadedPaths.orEmpty()
-
     fun feedPcm(samples: ShortArray, frameCount: Int, channels: Int) {
         synchronized(pcmLock) {
             val currentHandle = handle

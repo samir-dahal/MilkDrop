@@ -43,6 +43,16 @@ class AppSettings(context: Context) {
             ?: if (prefs.getBoolean(KEY_AUDIO_SOURCE_INTERNAL, false)) AudioInput.PHONE_AUDIO else AudioInput.MIC
         set(value) = prefs.edit().putString(KEY_AUDIO_INPUT, value.name).remove(KEY_AUDIO_SOURCE_INTERNAL).apply()
 
+    /** Full paths of favourite presets. */
+    var favouritePresets: Set<String>
+        get() = prefs.getStringSet(KEY_FAVOURITE_PRESETS, null).orEmpty().toSet()
+        set(value) = prefs.edit().putStringSet(KEY_FAVOURITE_PRESETS, value).apply()
+
+    /** Full paths of presets left out of the playlist. */
+    var hiddenPresets: Set<String>
+        get() = prefs.getStringSet(KEY_HIDDEN_PRESETS, null).orEmpty().toSet()
+        set(value) = prefs.edit().putStringSet(KEY_HIDDEN_PRESETS, value).apply()
+
     /** Full path of the preset showing when the app last ran, to resume on it at launch. */
     var lastPresetPath: String?
         get() = prefs.getString(KEY_LAST_PRESET_PATH, null)
@@ -60,5 +70,7 @@ class AppSettings(context: Context) {
         const val KEY_AUDIO_SOURCE_INTERNAL = "audio_source_internal"
         const val KEY_AUDIO_INPUT = "audio_input"
         const val KEY_LAST_PRESET_PATH = "last_preset_path"
+        const val KEY_FAVOURITE_PRESETS = "favourite_presets"
+        const val KEY_HIDDEN_PRESETS = "hidden_presets"
     }
 }

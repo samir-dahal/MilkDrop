@@ -40,6 +40,7 @@ import com.milkdrop.visualizer.audio.AudioInput
 import com.milkdrop.visualizer.databinding.ActivityMainBinding
 import com.milkdrop.visualizer.presets.PresetListCache
 import com.milkdrop.visualizer.presets.PresetPaths
+import com.milkdrop.visualizer.presets.PresetRatings
 import com.milkdrop.visualizer.render.MilkDropRenderer.MeshSize
 import com.milkdrop.visualizer.render.MilkDropRenderer.Navigation
 import com.milkdrop.visualizer.render.MilkDropSurfaceView
@@ -60,9 +61,13 @@ class MainActivity : AppCompatActivity() {
     private var hardCutEnabled = false
     private var presetDurationIndex = 1
     private var beatCutsEnabled = false
-    private var allPresetEntries: List<PresetEntry> = emptyList()
-    private var allPresetEntriesSource: List<String>? = null
-    private var currentPlaylistPosition = 0
+    private lateinit var ratings: PresetRatings
+
+    /** Every scanned preset, hidden ones included; the playlist is this minus the hidden ones. */
+    private var allPresetPaths: List<String> = emptyList()
+    private var presetEntries: List<PresetEntry> = emptyList()
+    private var currentPresetPath: String? = null
+    private var favouritesOnly = false
     private val searchExecutor = Executors.newSingleThreadExecutor()
     private var pendingSearch = Runnable {}
     private var searchGeneration = 0
@@ -109,6 +114,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         settings = AppSettings(this)
+        ratings = PresetRatings(settings.favouritePresets, settings.hiddenPresets) { favourites, hidden ->
+            settings.favouritePresets = favourites
+            settings.hiddenPresets = hidden
+        }
         autoAdvanceEnabled = settings.autoAdvanceEnabled
         shuffleEnabled = settings.shuffleEnabled
         hardCutEnabled = settings.hardCutEnabled
@@ -184,7 +193,11 @@ class MainActivity : AppCompatActivity() {
         renderer.startPresetPath = settings.lastPresetPath
         renderer.onPresetChanged = { path ->
             settings.lastPresetPath = path
-            runOnUiThread { showPresetName(File(path).nameWithoutExtension) }
+            runOnUiThread {
+                currentPresetPath = path
+                updateFavouriteButton()
+                showPresetName(File(path).nameWithoutExtension)
+            }
         }
         renderer.onPresetsReady = { runOnUiThread { setStatusMessage(null) } }
         setStatusMessage(R.string.presets_loading)
@@ -193,7 +206,7 @@ class MainActivity : AppCompatActivity() {
         Thread({
             val cached = cache.read()
             if (cached.isNotEmpty()) {
-                renderer.loadScannedPresets(cached)
+                runOnUiThread { setAllPresets(cached) }
             }
 
             val startMs = SystemClock.elapsedRealtime()
@@ -202,13 +215,31 @@ class MainActivity : AppCompatActivity() {
             // An empty scan (e.g. storage access not granted yet) never overwrites a good cache.
             if (scanned.isNotEmpty() && scanned != cached) {
                 cache.write(scanned)
-                renderer.loadScannedPresets(scanned)
+                runOnUiThread { setAllPresets(scanned) }
             }
             if (scanned.isEmpty() && cached.isEmpty()) {
                 val message = if (hasAllFilesAccess()) R.string.presets_none_found else R.string.presets_need_access
                 runOnUiThread { setStatusMessage(message) }
             }
         }, "milkdrop-preset-scan").start()
+    }
+
+    private fun setAllPresets(paths: List<String>) {
+        allPresetPaths = paths
+        applyPlaylist()
+    }
+
+    /**
+     * Hands projectM the playlist without hidden presets (so Next, Shuffle and Auto-advance skip
+     * them), and rebuilds the List entries with each preset's index in that playlist.
+     */
+    private fun applyPlaylist() {
+        val playable = ratings.playable(allPresetPaths)
+        surfaceView.milkDropRenderer.loadScannedPresets(playable)
+        val indexByPath = HashMap<String, Int>(playable.size * 2)
+        playable.forEachIndexed { index, path -> indexByPath[path] = index }
+        presetEntries = allPresetPaths.map { PresetEntry(it, indexByPath[it]) }
+        if (binding.playlistPanel.isVisible) scheduleSearch()
     }
 
     private fun hasAllFilesAccess(): Boolean =
@@ -367,9 +398,23 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnPlaylist.setOnClickListener { openPlaylistPanel() }
         binding.btnSettings.setOnClickListener { openSettingsSheet() }
+        binding.btnFavourite.setOnClickListener {
+            val path = currentPresetPath ?: return@setOnClickListener
+            ratings.toggleFavourite(path)
+            updateFavouriteButton()
+        }
         binding.btnMediaPrevious.setOnClickListener { dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }
         binding.btnMediaPlayPause.setOnClickListener { dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) }
         binding.btnMediaNext.setOnClickListener { dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_NEXT) }
+    }
+
+    private fun updateFavouriteButton() {
+        val favourite = currentPresetPath?.let { ratings.isFavourite(it) } == true
+        binding.btnFavourite.isActivated = favourite
+        ViewCompat.setStateDescription(
+            binding.btnFavourite,
+            getString(if (favourite) R.string.state_on else R.string.state_off),
+        )
     }
 
     private fun updateShuffleButton() {
@@ -444,14 +489,40 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupPlaylistPanel() {
         binding.playlistRecyclerView.layoutManager = LinearLayoutManager(this)
-        presetAdapter = PresetListAdapter { entry ->
-            surfaceView.milkDropRenderer.requestNavigation(Navigation.JumpTo(entry.index))
-            closePlaylistPanel()
-        }
+        presetAdapter = PresetListAdapter(
+            ratings,
+            onPresetClick = { entry ->
+                entry.playlistIndex?.let { surfaceView.milkDropRenderer.requestNavigation(Navigation.JumpTo(it)) }
+                closePlaylistPanel()
+            },
+            onFavouriteToggled = { entry ->
+                ratings.toggleFavourite(entry.path)
+                if (entry.path == currentPresetPath) updateFavouriteButton()
+                if (favouritesOnly) scheduleSearch()
+            },
+            onHiddenToggled = { entry ->
+                ratings.toggleHidden(entry.path)
+                applyPlaylist()
+            },
+        )
         binding.playlistRecyclerView.adapter = presetAdapter
 
         binding.btnClosePlaylist.setOnClickListener { closePlaylistPanel() }
-        binding.playlistSearch.doAfterTextChanged { scheduleSearch(it?.toString().orEmpty()) }
+        binding.btnFavouritesOnly.setOnClickListener {
+            favouritesOnly = !favouritesOnly
+            updateFavouritesOnlyButton()
+            scheduleSearch()
+        }
+        updateFavouritesOnlyButton()
+        binding.playlistSearch.doAfterTextChanged { scheduleSearch() }
+    }
+
+    private fun updateFavouritesOnlyButton() {
+        binding.btnFavouritesOnly.isActivated = favouritesOnly
+        ViewCompat.setStateDescription(
+            binding.btnFavouritesOnly,
+            getString(if (favouritesOnly) R.string.state_on else R.string.state_off),
+        )
     }
 
     private fun openPlaylistPanel() {
@@ -461,22 +532,15 @@ class MainActivity : AppCompatActivity() {
         closePanelOnBack.isEnabled = true
         updateTopLabel()
 
-        surfaceView.queueEvent {
-            val position = surfaceView.milkDropRenderer.playlistPosition()
-            runOnUiThread {
-                val items = surfaceView.milkDropRenderer.playlistItems()
-                if (items !== allPresetEntriesSource) {
-                    allPresetEntries = items.mapIndexed { index, path -> PresetEntry(index, path) }
-                    allPresetEntriesSource = items
-                }
-                currentPlaylistPosition = position
-                presetAdapter.submit(allPresetEntries, position)
-                if (allPresetEntries.isNotEmpty()) {
-                    binding.playlistRecyclerView.scrollToPosition(position.coerceIn(0, allPresetEntries.size - 1))
-                }
-            }
-        }
+        val entries = visibleEntries()
+        presetAdapter.submit(entries, currentPresetPath)
+        val current = entries.indexOfFirst { it.path == currentPresetPath }
+        if (current >= 0) binding.playlistRecyclerView.scrollToPosition(current)
     }
+
+    /** The List before the search query: all presets, or only favourites. */
+    private fun visibleEntries(): List<PresetEntry> =
+        if (favouritesOnly) presetEntries.filter { ratings.isFavourite(it.path) } else presetEntries
 
     private fun closePlaylistPanel() {
         // The search box's keyboard otherwise stays up after picking a preset, covering (and
@@ -491,11 +555,12 @@ class MainActivity : AppCompatActivity() {
      * Waits for a pause in typing, then filters ~15k paths off the main thread, so each keystroke
      * doesn't re-filter and rebind the whole list. Results from an older query are dropped.
      */
-    private fun scheduleSearch(query: String) {
+    private fun scheduleSearch() {
         binding.playlistSearch.removeCallbacks(pendingSearch)
         pendingSearch = Runnable {
             val generation = ++searchGeneration
-            val entries = allPresetEntries
+            val query = binding.playlistSearch.text?.toString().orEmpty()
+            val entries = visibleEntries()
             searchExecutor.execute {
                 val filtered = if (query.isBlank()) {
                     entries
@@ -504,7 +569,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 runOnUiThread {
                     if (generation == searchGeneration) {
-                        presetAdapter.submit(filtered, currentPlaylistPosition)
+                        presetAdapter.submit(filtered, currentPresetPath)
                     }
                 }
             }

@@ -6,6 +6,9 @@
     <string name="btn_shuffle">Shuffle</string>
     <string name="btn_playlist">List</string>
     <string name="btn_settings">Settings</string>
+    <string name="btn_favourite">Favourite</string>
+    <string name="btn_hide">Hide</string>
+    <string name="playlist_favourites_only">Favourites</string>
     <string name="state_on">On</string>
     <string name="state_off">Off</string>
 

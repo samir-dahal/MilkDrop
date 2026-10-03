@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Filled heart when the view is activated (preset is a favourite), outline otherwise. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_favourite_filled" android:state_activated="true" />
+    <item android:drawable="@drawable/ic_favourite_outline" />
+</selector>

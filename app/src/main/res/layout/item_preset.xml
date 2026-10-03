@@ -1,28 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingHorizontal="16dp"
-    android:paddingVertical="10dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="4dp"
     android:background="?android:attr/selectableItemBackground">
 
-    <TextView
-        android:id="@+id/presetName"
-        android:layout_width="match_parent"
+    <!-- Name and folder; dimmed together when the preset is hidden. -->
+    <LinearLayout
+        android:id="@+id/presetText"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textColor="#FFFFFF"
-        android:textSize="15sp"
-        android:maxLines="1"
-        android:ellipsize="middle" />
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingVertical="10dp">
 
-    <TextView
-        android:id="@+id/presetFolder"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textColor="#AAAAAA"
-        android:textSize="12sp"
-        android:maxLines="1"
-        android:ellipsize="start" />
+        <TextView
+            android:id="@+id/presetName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:maxLines="1"
+            android:ellipsize="middle" />
+
+        <TextView
+            android:id="@+id/presetFolder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp"
+            android:maxLines="1"
+            android:ellipsize="start" />
+
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btnPresetFavourite"
+        style="@style/RowToggleButton"
+        android:src="@drawable/ic_favourite"
+        android:contentDescription="@string/btn_favourite" />
+
+    <ImageButton
+        android:id="@+id/btnPresetHide"
+        style="@style/RowToggleButton"
+        android:src="@drawable/ic_hide"
+        android:contentDescription="@string/btn_hide" />
 
 </LinearLayout>
