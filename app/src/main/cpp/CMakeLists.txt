@@ -277,6 +277,84 @@ foreach(STAGE FILE_NAME IN ZIP_LISTS SHADER_STAGES SHADER_STAGE_FILES)
     )
 endforeach()
 
+# MilkDrop 3 gives preset shaders get_fft(pos) and get_fft_hz(freq): the spectrum level (0-1) at a
+# position along 0-22 kHz, or at a frequency. projectM has no such input, so presets using them
+# (MD3's equalizers) failed to compile. Our own implementation: the spectrum, reduced to 128 levels
+# with a quick fall-off, is uploaded each frame as a uniform array, and the functions read it.
+patch_projectm_source(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader.cpp
+    [=[static auto floatRand = ]=]
+    [=[static constexpr int FftLevelCount = 128;
+static constexpr float FftLevelGain = 1.0f;
+static constexpr float FftLevelHalfLifeSeconds = 0.08f;
+
+static const char* const FftShaderFunctions = R"(
+uniform float4 _fft[32];
+float _fft_level(int i)
+{
+    float4 v = _fft[i / 4];
+    int c = i - (i / 4) * 4;
+    return c == 0 ? v.x : (c == 1 ? v.y : (c == 2 ? v.z : v.w));
+}
+float get_fft(float pos)
+{
+    float x = saturate(pos) * 127.0;
+    int a = int(x);
+    int b = a < 127 ? a + 1 : 127;
+    return lerp(_fft_level(a), _fft_level(b), x - float(a));
+}
+float get_fft_hz(float hz)
+{
+    return get_fft(hz / 22050.0);
+}
+)";
+
+// Computed once per frame (several shaders read it each frame) and uploaded to the bound program.
+// Levels rise at once and halve every FftLevelHalfLifeSeconds, so bars don't flicker.
+static void UploadFftLevels(const PresetState& presetState)
+{
+    static std::array<float, FftLevelCount> levels{};
+    static int levelsFrame = -1;
+    if (presetState.renderContext.frame != levelsFrame)
+    {
+        levelsFrame = presetState.renderContext.frame;
+        const auto& audio = presetState.audioData;
+        constexpr int binsPerLevel = Audio::SpectrumSamples / FftLevelCount;
+        float const fps = std::max(presetState.renderContext.fps, 1.0f);
+        float const decay = std::pow(0.5f, 1.0f / (fps * FftLevelHalfLifeSeconds));
+        for (int level = 0; level < FftLevelCount; ++level)
+        {
+            float sum = 0;
+            for (int bin = level * binsPerLevel; bin < (level + 1) * binsPerLevel; ++bin)
+            {
+                sum += audio.spectrumLeft[bin] + audio.spectrumRight[bin];
+            }
+            float const raw = sum / (2 * binsPerLevel);
+            // Soft knee into 0-1: raw levels run ~0.2-1.6 on average with peaks near 10, so a
+            // linear scale either pins the bars at the top or leaves typical levels tiny.
+            levels[level] = std::max(1.0f - std::exp(-raw * FftLevelGain), levels[level] * decay);
+        }
+    }
+    GLint program = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+    GLint const location = glGetUniformLocation(program, "_fft");
+    if (location >= 0)
+    {
+        glUniform4fv(location, FftLevelCount / 4, levels.data());
+    }
+}
+
+static auto floatRand = ]=]
+    [=[    m_shader.Bind();]=]
+    [=[    m_shader.Bind();
+    UploadFftLevels(presetState);]=]
+    [=[fullSource.append(MilkdropStaticShaders::Get()->GetPresetShaderHeader());]=]
+    [=[fullSource.append(MilkdropStaticShaders::Get()->GetPresetShaderHeader());
+    fullSource.append(FftShaderFunctions);]=]
+    [=[#include <algorithm>]=]
+    [=[#include <algorithm>
+#include <cmath>]=]
+)
+
 find_library(log-lib log)
 target_link_libraries(projectM PRIVATE ${log-lib})
 
