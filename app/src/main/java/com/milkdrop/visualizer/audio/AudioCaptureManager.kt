@@ -5,18 +5,20 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.util.Log
 
 /** Owns whichever [AudioSource] is currently active and swaps between them on user toggle. */
 class AudioCaptureManager(
     private val context: Context,
     private val pcmSink: PcmSink,
 ) {
-    private var micSource: MicAudioSource? = null
+    /** The in-process source (mic or output mix); phone-audio capture runs in [AudioCaptureService]. */
+    private var localSource: AudioSource? = null
     private var serviceConnection: ServiceConnection? = null
     private var boundService: AudioCaptureService? = null
 
     fun requestInternalCapture(resultCode: Int, data: Intent) {
-        stopMic()
+        stopLocal()
         val intent = Intent(context, AudioCaptureService::class.java).apply {
             putExtra(AudioCaptureService.EXTRA_RESULT_CODE, resultCode)
             putExtra(AudioCaptureService.EXTRA_RESULT_DATA, data)
@@ -26,15 +28,28 @@ class AudioCaptureManager(
     }
 
     fun startMic() {
-        stopInternal()
-        val source = MicAudioSource(context, pcmSink)
-        micSource = source
-        source.start()
+        startLocal(MicAudioSource(context, pcmSink))
     }
 
+    /** Returns false if this phone won't give access to the output mix. */
+    fun startOutputMix(): Boolean =
+        try {
+            startLocal(OutputMixAudioSource(pcmSink))
+            true
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Output mix capture unavailable", e)
+            false
+        }
+
     fun stopAll() {
-        stopMic()
+        stopLocal()
         stopInternal()
+    }
+
+    private fun startLocal(source: AudioSource) {
+        stopAll()
+        source.start()
+        localSource = source
     }
 
     private fun bindService() {
@@ -53,9 +68,9 @@ class AudioCaptureManager(
         context.bindService(Intent(context, AudioCaptureService::class.java), connection, Context.BIND_AUTO_CREATE)
     }
 
-    private fun stopMic() {
-        micSource?.stop()
-        micSource = null
+    private fun stopLocal() {
+        localSource?.stop()
+        localSource = null
     }
 
     private fun stopInternal() {
@@ -64,5 +79,9 @@ class AudioCaptureManager(
         serviceConnection = null
         boundService = null
         context.stopService(Intent(context, AudioCaptureService::class.java))
+    }
+
+    private companion object {
+        const val TAG = "AudioCaptureManager"
     }
 }

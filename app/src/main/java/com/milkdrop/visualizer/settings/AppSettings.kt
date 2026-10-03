@@ -1,6 +1,7 @@
 package com.milkdrop.visualizer.settings
 
 import android.content.Context
+import com.milkdrop.visualizer.audio.AudioInput
 
 /** Persists the overlay's toggle states (everything except momentary actions like Media) and the last preset across launches. */
 class AppSettings(context: Context) {
@@ -27,9 +28,12 @@ class AppSettings(context: Context) {
         get() = prefs.getInt(KEY_QUALITY_INDEX, 0)
         set(value) = prefs.edit().putInt(KEY_QUALITY_INDEX, value).apply()
 
-    var internalAudioSource: Boolean
-        get() = prefs.getBoolean(KEY_AUDIO_SOURCE_INTERNAL, false)
-        set(value) = prefs.edit().putBoolean(KEY_AUDIO_SOURCE_INTERNAL, value).apply()
+    /** Falls back to the older on/off setting (phone audio vs mic) saved before there were three. */
+    var audioInput: AudioInput
+        get() = prefs.getString(KEY_AUDIO_INPUT, null)
+            ?.let { saved -> AudioInput.entries.firstOrNull { it.name == saved } }
+            ?: if (prefs.getBoolean(KEY_AUDIO_SOURCE_INTERNAL, false)) AudioInput.PHONE_AUDIO else AudioInput.MIC
+        set(value) = prefs.edit().putString(KEY_AUDIO_INPUT, value.name).remove(KEY_AUDIO_SOURCE_INTERNAL).apply()
 
     /** Full path of the preset showing when the app last ran, to resume on it at launch. */
     var lastPresetPath: String?
@@ -44,6 +48,7 @@ class AppSettings(context: Context) {
         const val KEY_FPS_INDEX = "fps_index"
         const val KEY_QUALITY_INDEX = "quality_index"
         const val KEY_AUDIO_SOURCE_INTERNAL = "audio_source_internal"
+        const val KEY_AUDIO_INPUT = "audio_input"
         const val KEY_LAST_PRESET_PATH = "last_preset_path"
     }
 }

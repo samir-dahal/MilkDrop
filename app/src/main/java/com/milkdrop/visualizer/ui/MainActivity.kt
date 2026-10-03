@@ -36,6 +36,7 @@ import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.milkdrop.visualizer.R
 import com.milkdrop.visualizer.audio.AudioCaptureManager
+import com.milkdrop.visualizer.audio.AudioInput
 import com.milkdrop.visualizer.databinding.ActivityMainBinding
 import com.milkdrop.visualizer.presets.PresetListCache
 import com.milkdrop.visualizer.presets.PresetPaths
@@ -142,8 +143,9 @@ class MainActivity : AppCompatActivity() {
         binding.groupTransition.check(if (hardCutEnabled) R.id.transitionInstant else R.id.transitionSmooth)
         binding.groupFrameRate.check(FPS_BUTTON_IDS[fpsIndex])
         binding.groupQuality.check(QUALITY_BUTTON_IDS[qualityIndex])
-        binding.groupAudioSource.check(if (settings.internalAudioSource) R.id.audioSourcePhone else R.id.audioSourceMic)
+        binding.groupAudioSource.check(AUDIO_INPUT_BUTTON_IDS.getValue(settings.audioInput))
         updatingControls = false
+        binding.audioSourceDescription.setText(AUDIO_INPUT_DESCRIPTIONS.getValue(settings.audioInput))
     }
 
     /**
@@ -395,12 +397,7 @@ class MainActivity : AppCompatActivity() {
         }
         binding.groupAudioSource.onUserSelection { id ->
             audioCaptureManager.stopAll()
-            if (id == R.id.audioSourcePhone) {
-                settings.internalAudioSource = true
-                requestInternalCapture()
-            } else {
-                switchToMic()
-            }
+            startAudioInput(AUDIO_INPUT_BUTTON_IDS.entries.first { it.value == id }.key)
         }
     }
 
@@ -539,11 +536,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun startPersistedAudioSource() {
-        if (settings.internalAudioSource) {
-            requestInternalCapture()
-        } else {
-            switchToMic()
+    private fun startPersistedAudioSource() = startAudioInput(settings.audioInput)
+
+    private fun startAudioInput(input: AudioInput) {
+        when (input) {
+            AudioInput.MIC -> switchToMic()
+            AudioInput.PHONE_AUDIO -> {
+                showAudioInput(AudioInput.PHONE_AUDIO)
+                requestInternalCapture()
+            }
+            AudioInput.OUTPUT_MIX ->
+                if (audioCaptureManager.startOutputMix()) {
+                    showAudioInput(AudioInput.OUTPUT_MIX)
+                } else {
+                    switchToMic()
+                    binding.audioSourceDescription.setText(R.string.audio_source_output_mix_unavailable)
+                }
         }
     }
 
@@ -552,13 +560,19 @@ class MainActivity : AppCompatActivity() {
         screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent())
     }
 
-    /** Also the fallback when phone-audio capture is declined, so it moves the selection to Mic. */
+    /** Also the fallback when another source fails or is declined, so it moves the selection to Mic. */
     private fun switchToMic() {
         audioCaptureManager.startMic()
-        settings.internalAudioSource = false
+        showAudioInput(AudioInput.MIC)
+    }
+
+    /** Saves [input] and shows it as selected, with its description. */
+    private fun showAudioInput(input: AudioInput) {
+        settings.audioInput = input
         updatingControls = true
-        binding.groupAudioSource.check(R.id.audioSourceMic)
+        binding.groupAudioSource.check(AUDIO_INPUT_BUTTON_IDS.getValue(input))
         updatingControls = false
+        binding.audioSourceDescription.setText(AUDIO_INPUT_DESCRIPTIONS.getValue(input))
     }
 
     private companion object {
@@ -580,5 +594,16 @@ class MainActivity : AppCompatActivity() {
         // Coarser warp mesh at Low: fewer per-vertex equation evaluations on the CPU each frame.
         val QUALITY_MESH_SIZES = arrayOf(MeshSize.DEFAULT, MeshSize.DEFAULT, MeshSize(24, 18))
         val QUALITY_BUTTON_IDS = intArrayOf(R.id.qualityHigh, R.id.qualityMedium, R.id.qualityLow)
+
+        val AUDIO_INPUT_BUTTON_IDS = mapOf(
+            AudioInput.MIC to R.id.audioSourceMic,
+            AudioInput.PHONE_AUDIO to R.id.audioSourcePhone,
+            AudioInput.OUTPUT_MIX to R.id.audioSourceOutputMix,
+        )
+        val AUDIO_INPUT_DESCRIPTIONS = mapOf(
+            AudioInput.MIC to R.string.audio_source_mic_description,
+            AudioInput.PHONE_AUDIO to R.string.audio_source_phone_description,
+            AudioInput.OUTPUT_MIX to R.string.audio_source_output_mix_description,
+        )
     }
 }

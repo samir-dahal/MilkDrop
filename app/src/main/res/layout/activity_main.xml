@@ -272,16 +272,29 @@
                     style="@style/SegmentedGroup">
 
                     <RadioButton
+                        android:id="@+id/audioSourceMic"
+                        style="@style/Segment"
+                        android:text="@string/audio_source_mic" />
+
+                    <RadioButton
                         android:id="@+id/audioSourcePhone"
                         style="@style/Segment"
                         android:text="@string/audio_source_phone" />
 
                     <RadioButton
-                        android:id="@+id/audioSourceMic"
+                        android:id="@+id/audioSourceOutputMix"
                         style="@style/Segment"
-                        android:text="@string/audio_source_mic" />
+                        android:text="@string/audio_source_output_mix" />
 
                 </RadioGroup>
+
+                <TextView
+                    android:id="@+id/audioSourceDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
 
             </LinearLayout>
 

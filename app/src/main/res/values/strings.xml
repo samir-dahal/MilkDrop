@@ -29,8 +29,13 @@
     <string name="quality_medium">Medium</string>
     <string name="quality_high">High</string>
     <string name="setting_audio_source">Audio source</string>
-    <string name="audio_source_phone">Phone audio</string>
     <string name="audio_source_mic">Mic</string>
+    <string name="audio_source_phone">Phone audio</string>
+    <string name="audio_source_output_mix">No prompt</string>
+    <string name="audio_source_mic_description">Listens through the microphone. Works with any player and picks up the room too.</string>
+    <string name="audio_source_phone_description">What the phone plays, in full detail. Android asks to allow screen capture each time the app starts.</string>
+    <string name="audio_source_output_mix_description">What the phone plays, without the prompt, at lower detail. Some apps come through silent.</string>
+    <string name="audio_source_output_mix_unavailable">This phone doesn\'t allow No prompt audio, so the mic is on.</string>
 
     <string name="playlist_search_hint">Search presets…</string>
     <string name="playlist_close">Close</string>
