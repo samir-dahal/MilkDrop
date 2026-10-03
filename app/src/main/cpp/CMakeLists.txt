@@ -96,7 +96,7 @@ function(mirror_projectm_dir TARGET DIR_REL)
     foreach(SOURCE IN LISTS SOURCES)
         get_filename_component(SOURCE_ABS ${SOURCE} ABSOLUTE BASE_DIR ${TARGET_DIR})
         cmake_path(IS_PREFIX SRC_DIR ${SOURCE_ABS} NORMALIZE IN_DIR)
-        if(IN_DIR AND SOURCE_ABS MATCHES "\\.(cpp|hpp)$")
+        if(IN_DIR AND SOURCE_ABS MATCHES "\\.(cpp|hpp|h)$")
             projectm_patched_path(${TARGET} ${SOURCE_ABS} SOURCE)
             add_configure_dependency(${SOURCE_ABS})
             get_filename_component(SOURCE_DST_DIR ${SOURCE} DIRECTORY)
@@ -109,6 +109,10 @@ function(mirror_projectm_dir TARGET DIR_REL)
     projectm_patched_path(${TARGET} ${SRC_DIR} DST_DIR)
     target_include_directories(${TARGET} BEFORE PUBLIC ${DST_DIR})
 endfunction()
+
+# hlslparser's headers get patched below, and MilkdropShader.cpp includes them too (through the
+# PUBLIC include dir this prepends), so every user sees the same class layout.
+mirror_projectm_dir(hlslparser vendor/hlslparser/src)
 
 # hlslparser (transpiles every preset's HLSL shaders to GLSL on each preset load):
 # - It builds a fresh std::locale("C") for every float literal it parses or prints. In libc++
@@ -131,6 +135,8 @@ patch_projectm_source(hlslparser vendor/hlslparser/src/HLSLTokenizer.cpp
     Log_Error("%s(%d) : %s, at: %.*s\n", m_fileName, m_lineNumber, buffer, int(nearEnd - m_bufferPrevious), m_bufferPrevious);]=]
 )
 # Parser fixes for shaders that compile in MilkDrop (DirectX) but not through hlslparser:
+# - Its vector sincos(x, out s, out c) overloads declare s as a scalar, so "sincos(v3, s, c)" cast
+#   s to float - no longer an out-able variable, and the GLSL didn't compile.
 # - tanh/sinh/cosh are HLSL intrinsics it doesn't know (GLSL ES 3.0 has them under the same names).
 # - It brackets every macro expansion, so with projectM's "#define aspect _c0" a preset declaring
 #   its own "float aspect = aspect.x/aspect.y;" became "float (_c0) = ..." - a syntax error. A
@@ -139,6 +145,12 @@ patch_projectm_source(hlslparser vendor/hlslparser/src/HLSLTokenizer.cpp
 # - It declared a variable before parsing its initialiser, so in that same line "_c0.y" read the
 #   new scalar. GLSL starts the scope after the initialiser, so the generated code is then correct.
 patch_projectm_source(hlslparser vendor/hlslparser/src/HLSLParser.cpp
+    [=[Intrinsic( "sincos", HLSLBaseType_Void,  HLSLBaseType_Float2,  HLSLBaseType_Float,  HLSLBaseType_Float2 ),]=]
+    [=[Intrinsic( "sincos", HLSLBaseType_Void,  HLSLBaseType_Float2,  HLSLBaseType_Float2, HLSLBaseType_Float2 ),]=]
+    [=[Intrinsic( "sincos", HLSLBaseType_Void,  HLSLBaseType_Float3,  HLSLBaseType_Float,  HLSLBaseType_Float3 ),]=]
+    [=[Intrinsic( "sincos", HLSLBaseType_Void,  HLSLBaseType_Float3,  HLSLBaseType_Float3, HLSLBaseType_Float3 ),]=]
+    [=[Intrinsic( "sincos", HLSLBaseType_Void,  HLSLBaseType_Float4,  HLSLBaseType_Float,  HLSLBaseType_Float4 ),]=]
+    [=[Intrinsic( "sincos", HLSLBaseType_Void,  HLSLBaseType_Float4,  HLSLBaseType_Float4, HLSLBaseType_Float4 ),]=]
     [=[INTRINSIC_FLOAT1_FUNCTION( "tan" ),]=]
     [=[INTRINSIC_FLOAT1_FUNCTION( "tan" ),
         INTRINSIC_FLOAT1_FUNCTION( "tanh" ),
@@ -168,6 +180,79 @@ patch_projectm_source(hlslparser vendor/hlslparser/src/HLSLParser.cpp
         }
 
         DeclareVariable( declaration2->name, declaration2->type );]=]
+)
+
+# A preset variable named like a GLSL built-in function ("float cross;") is a redeclaration error in
+# GLSL ES. hlslparser already renames GLSL-only reserved words; add the built-in function names it
+# shares with HLSL, but keep calls to them as they are (GLSL doesn't allow user functions with
+# those names, so a call by that name is always the built-in).
+# Its "mult" helper (stands in for "*", returning 0 for 0 * NaN like Direct3D) returned float for
+# int * int, where HLSL gives int ("mult(0, n) / 2" then mixed float and int), and had no ivec
+# overloads.
+patch_projectm_source(hlslparser vendor/hlslparser/src/GLSLGenerator.h
+    "s_numReservedWords = 9;" "s_numReservedWords = 9 + 24;"
+)
+patch_projectm_source(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
+    [=[		"main",]=]
+    [=[		"main",
+        // GLSL built-in functions; must stay last (see kFirstBuiltinFunctionWord).
+        "cross", "dot", "length", "distance", "normalize", "reflect", "refract", "step", "sign", "min", "max", "clamp", "pow", "exp", "log", "sqrt", "abs", "floor", "ceil", "sin", "cos", "tan", "radians", "degrees",]=]
+    [=[const char* GLSLGenerator::s_reservedWord[] =]=]
+    [=[static const int kFirstBuiltinFunctionWord = 9;
+const char* GLSLGenerator::s_reservedWord[] =]=]
+    [=[m_writer.WriteLine(0, "float %s(int i_x, int i_y) { float x=float(i_x); float y=float(i_y); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }", m_altMultFunction);]=]
+    [=[m_writer.WriteLine(0, "int %s(int x, int y) { return x * y; }", m_altMultFunction);
+        m_writer.WriteLine(0, "ivec2 %s(ivec2 x, ivec2 y) { return x * y; }", m_altMultFunction);
+        m_writer.WriteLine(0, "ivec3 %s(ivec3 x, ivec3 y) { return x * y; }", m_altMultFunction);
+        m_writer.WriteLine(0, "ivec4 %s(ivec4 x, ivec4 y) { return x * y; }", m_altMultFunction);]=]
+    [=[OutputIdentifier(functionName);]=]
+    [=[bool isBuiltinFunctionCall = false;
+            for (int i = kFirstBuiltinFunctionWord; i < s_numReservedWords; ++i)
+            {
+                isBuiltinFunctionCall = isBuiltinFunctionCall || String_Equal(s_reservedWord[i], functionName);
+            }
+            if (isBuiltinFunctionCall) m_writer.Write("%s", functionName);
+            else OutputIdentifier(functionName);]=]
+)
+
+# When the GPU driver rejects a shader, its log only gives GLSL line numbers in code generated at
+# runtime; log those lines too.
+patch_projectm_source(Renderer src/libprojectM/Renderer/Shader.cpp
+    [=[GLuint Shader::CompileShader(]=]
+    [=[static void LogFailedShaderLines(const std::string& source, const char* errorLog)
+{
+    for (const char* line = errorLog; *line != 0;)
+    {
+        int lineNumber = 0;
+        if (sscanf(line, "%*d:%d:", &lineNumber) == 1 && lineNumber > 0)
+        {
+            size_t start = 0;
+            for (int i = 1; i < lineNumber && start != std::string::npos; ++i)
+            {
+                start = source.find('\n', start);
+                if (start != std::string::npos) ++start;
+            }
+            if (start != std::string::npos)
+            {
+                __android_log_print(ANDROID_LOG_WARN, "MilkDropShader", "  line %d: %s", lineNumber,
+                                    source.substr(start, source.find('\n', start) - start).c_str());
+            }
+        }
+        const char* next = strchr(line, '\n');
+        if (next == nullptr) break;
+        line = next + 1;
+    }
+}
+
+GLuint Shader::CompileShader(]=]
+    [=[glDeleteShader(shader);]=]
+    [=[glDeleteShader(shader);
+    LogFailedShaderLines(source, message.data());]=]
+    [=[#include "Shader.hpp"]=]
+    [=[#include "Shader.hpp"
+#include <android/log.h>
+#include <cstdio>
+#include <cstring>]=]
 )
 
 # MilkDrop 3 raised the custom shape and custom wave slots from 4 each to 16; presets using slots
