@@ -41,6 +41,7 @@ import com.milkdrop.visualizer.databinding.ActivityMainBinding
 import com.milkdrop.visualizer.presets.PresetListCache
 import com.milkdrop.visualizer.presets.PresetPaths
 import com.milkdrop.visualizer.presets.PresetRatings
+import com.milkdrop.visualizer.presets.PresetRatingsStore
 import com.milkdrop.visualizer.render.MilkDropRenderer.MeshSize
 import com.milkdrop.visualizer.render.MilkDropRenderer.Navigation
 import com.milkdrop.visualizer.render.MilkDropSurfaceView
@@ -69,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     private var currentPresetPath: String? = null
     private var favouritesOnly = false
     private val searchExecutor = Executors.newSingleThreadExecutor()
+    private val ratingsWriter = Executors.newSingleThreadExecutor()
     private var pendingSearch = Runnable {}
     private var searchGeneration = 0
     private var fpsIndex = 0
@@ -114,10 +116,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         settings = AppSettings(this)
-        ratings = PresetRatings(settings.favouritePresets, settings.hiddenPresets) { favourites, hidden ->
-            settings.favouritePresets = favourites
-            settings.hiddenPresets = hidden
-        }
+        // Two small files, read once here; writes go to the background executor.
+        val ratingsStore = PresetRatingsStore(
+            PresetPaths.presetsDir, PresetPaths.favouritesFile, PresetPaths.hiddenFile, ratingsWriter,
+        )
+        ratings = PresetRatings(ratingsStore.loadFavourites(), ratingsStore.loadHidden(), ratingsStore::save)
         autoAdvanceEnabled = settings.autoAdvanceEnabled
         shuffleEnabled = settings.shuffleEnabled
         hardCutEnabled = settings.hardCutEnabled
@@ -363,6 +366,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         audioCaptureManager.stopAll()
         searchExecutor.shutdownNow()
+        ratingsWriter.shutdown() // lets a pending save finish
     }
 
     private fun setImmersiveFullscreen() {

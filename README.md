@@ -31,25 +31,46 @@ On first launch the app creates two folders on external storage:
 
 Grant the "All files access" permission when prompted so the app can read these folders.
 
+Favourite and hidden presets are kept next to them, in `MilkDropApp/favourites.txt` and
+`MilkDropApp/hidden.txt`: one preset per line, relative to `MilkDropApp/presets`. They survive
+reinstalling the app, can be copied to another phone with the presets, and can be edited by hand
+(lines starting with `#` are ignored).
+
 ## Controls
 
 Tap the visuals to show the controls; tap again to hide them. They stay up until you tap again.
+The preset's name shows at the top while they're up, and for a couple of seconds on each change.
 
 - **Prev / Next** — step through presets. Prev goes back through the presets you actually saw,
   even with shuffle on.
 - **Shuffle** — random order instead of folder order.
-- **List** — browse and search all presets; tap one to jump to it. Back closes the list.
-- **Auto** — when on, switches preset every ~15 seconds; when off, stays on the current preset.
-- **Media** — play/pause whatever audio app is playing.
-- **Source** — switch between internal playback capture and the microphone. Internal capture
-  asks for a screen-capture-style consent dialog each time it starts — that's required by
-  Android's `AudioPlaybackCapture` API. Some apps (e.g. Spotify) block third-party playback
-  capture by design; switch to the microphone for those.
-- **FPS** — frame rate cap (30 / 45 / 60 / uncapped).
-- **Quality** — render resolution (High / Medium / Low). Low also uses a coarser warp mesh.
-- **Transition** — Smooth blends into the next preset over a second; Instant cuts straight to it.
+- **Favourite** — mark the preset that's showing as a favourite.
+- **List** — browse and search all presets; tap one to jump to it. Each row has a favourite and a
+  hide button, and **Favourites** shows only favourites. Hidden presets stay in the list, dimmed,
+  but Next, Shuffle and Auto-advance skip them. Back closes the list.
+- **Settings** — see below.
+- **⏮ ⏯ ⏭** — previous track, play/pause and next track in whatever audio app is playing.
 
-All toggles, and the preset that was showing, are remembered across launches. The preset list
+The app follows the phone's rotation; in landscape the controls are a single row.
+
+### Settings
+
+- **Auto-advance** — switch preset on a timer; when off, stays on the current preset.
+- **Change on big beats** — also switch on a sudden jump in loudness.
+- **Time per preset** — 10, 15, 30 or 60 seconds.
+- **Transition** — Smooth blends into the next preset over a second; Instant cuts straight to it.
+- **Frame rate** — 30, 45, 60 or Max. MilkDrop's motion advances per frame, so presets move
+  faster at higher frame rates.
+- **Quality** — render resolution (High / Medium / Low). Low also uses a coarser warp mesh.
+- **Audio source**:
+  - *Mic* — the microphone; works with any player and picks up the room.
+  - *Phone audio* — what the phone plays, in full detail. Android asks for screen-capture
+    consent each time it starts (required by the `AudioPlaybackCapture` API), and some apps
+    (e.g. Spotify) block capture by design.
+  - *No prompt* — what the phone plays, without the consent dialog, through the `Visualizer`
+    API: coarser, and apps that block capture come through silent.
+
+All settings, and the preset that was showing, are remembered across launches. The preset list
 is cached, so the app resumes within a moment of opening; it rescans the presets folder in the
 background and picks up added or removed presets automatically.
 

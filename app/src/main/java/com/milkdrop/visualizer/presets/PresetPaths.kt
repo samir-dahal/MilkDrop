@@ -19,6 +19,12 @@ object PresetPaths {
     val texturesDir: File
         get() = File(rootDir, "textures")
 
+    val favouritesFile: File
+        get() = File(rootDir, "favourites.txt")
+
+    val hiddenFile: File
+        get() = File(rootDir, "hidden.txt")
+
     fun ensureDirsExist() {
         presetsDir.mkdirs()
         texturesDir.mkdirs()
