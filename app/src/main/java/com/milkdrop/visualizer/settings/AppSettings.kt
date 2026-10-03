@@ -16,6 +16,14 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_ADVANCE, true)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_ADVANCE, value).apply()
 
+    var presetDurationIndex: Int
+        get() = prefs.getInt(KEY_PRESET_DURATION_INDEX, 1)
+        set(value) = prefs.edit().putInt(KEY_PRESET_DURATION_INDEX, value).apply()
+
+    var beatCutsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BEAT_CUTS, false)
+        set(value) = prefs.edit().putBoolean(KEY_BEAT_CUTS, value).apply()
+
     var hardCutEnabled: Boolean
         get() = prefs.getBoolean(KEY_HARD_CUT, false)
         set(value) = prefs.edit().putBoolean(KEY_HARD_CUT, value).apply()
@@ -45,6 +53,8 @@ class AppSettings(context: Context) {
         const val KEY_SHUFFLE = "shuffle_enabled"
         const val KEY_AUTO_ADVANCE = "auto_advance_enabled"
         const val KEY_HARD_CUT = "hard_cut_enabled"
+        const val KEY_PRESET_DURATION_INDEX = "preset_duration_index"
+        const val KEY_BEAT_CUTS = "beat_cuts_enabled"
         const val KEY_FPS_INDEX = "fps_index"
         const val KEY_QUALITY_INDEX = "quality_index"
         const val KEY_AUDIO_SOURCE_INTERNAL = "audio_source_internal"

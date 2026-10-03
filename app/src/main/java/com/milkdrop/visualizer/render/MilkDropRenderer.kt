@@ -12,7 +12,8 @@ import javax.microedition.khronos.opengles.GL10
  * Owns the projectM instance, which lives entirely on the GLSurfaceView's GL thread.
  *
  * Other threads never call into projectM directly. They set the desired state instead
- * ([shuffleEnabled], [autoAdvanceEnabled], [instantTransitions], [meshSize], [requestNavigation]) and
+ * ([shuffleEnabled], [autoAdvanceEnabled], [instantTransitions], [meshSize], [presetDurationSeconds],
+ * [beatCutsEnabled], [requestNavigation]) and
  * [onDrawFrame] applies it at the start of the next frame. That sidesteps two problems `queueEvent` had here:
  *  - `queueEvent` doesn't guarantee running after [onSurfaceCreated], so an early event could hit a
  *    null handle (a real native crash) or be silently dropped.
@@ -62,10 +63,20 @@ class MilkDropRenderer(
     @Volatile
     var meshSize: MeshSize = MeshSize.DEFAULT
 
+    /** How long auto-advance shows each preset. */
+    @Volatile
+    var presetDurationSeconds: Double = 15.0
+
+    /** Also switch preset (hard cut) on a sudden jump in loudness, once a preset has shown a while. */
+    @Volatile
+    var beatCutsEnabled: Boolean = false
+
     private var appliedShuffle: Boolean? = null
     private var appliedAutoAdvance: Boolean? = null
     private var appliedInstantTransitions: Boolean? = null
     private var appliedMeshSize: MeshSize? = null
+    private var appliedPresetDuration: Double? = null
+    private var appliedBeatCuts: Boolean? = null
 
     private val pendingNavigation = AtomicReference<Navigation?>(null)
 
@@ -112,11 +123,15 @@ class MilkDropRenderer(
         GpuDriverThreads.pinToFastCores()
         performanceHints.onRenderThreadStarted()
         ProjectMBridge.nativeSetTextureSearchPaths(handle, arrayOf(texturesDir.absolutePath))
-        ProjectMBridge.nativeSetPresetDuration(handle, PRESET_DURATION_SECONDS)
+        // projectM's own minimum (20 s) is longer than typical preset durations, so beat cuts
+        // would never happen before the timed switch.
+        ProjectMBridge.nativeSetHardCutDuration(handle, BEAT_CUT_MIN_SECONDS)
         appliedShuffle = null
         appliedAutoAdvance = null
         appliedInstantTransitions = null
         appliedMeshSize = null
+        appliedPresetDuration = null
+        appliedBeatCuts = null
         // Until a preset list is handed over (see loadScannedPresets), projectM just shows its
         // built-in idle preset.
         loadedPaths = null
@@ -205,6 +220,18 @@ class MilkDropRenderer(
             appliedMeshSize = mesh
         }
 
+        val duration = presetDurationSeconds
+        if (duration != appliedPresetDuration) {
+            ProjectMBridge.nativeSetPresetDuration(currentHandle, duration)
+            appliedPresetDuration = duration
+        }
+
+        val beatCuts = beatCutsEnabled
+        if (beatCuts != appliedBeatCuts) {
+            ProjectMBridge.nativeSetHardCutEnabled(currentHandle, beatCuts)
+            appliedBeatCuts = beatCuts
+        }
+
         // After shuffle is applied, so the very first preset already honours it.
         // Identity check: it runs every frame, and callers hand over a new list only when it changed.
         val paths = presetPaths
@@ -278,7 +305,7 @@ class MilkDropRenderer(
 
     private companion object {
         const val TAG = "MilkDropRenderer"
-        const val PRESET_DURATION_SECONDS = 15.0
+        const val BEAT_CUT_MIN_SECONDS = 5.0
         const val SOFT_CUT_DURATION_SECONDS = 1.0
     }
 }

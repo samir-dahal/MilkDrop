@@ -16,6 +16,12 @@
     <string name="settings_title">Settings</string>
     <string name="settings_close">Close settings</string>
     <string name="setting_auto_advance">Auto-advance</string>
+    <string name="setting_beat_cuts">Change on big beats</string>
+    <string name="setting_preset_duration">Time per preset</string>
+    <string name="duration_10">10 s</string>
+    <string name="duration_15">15 s</string>
+    <string name="duration_30">30 s</string>
+    <string name="duration_60">60 s</string>
     <string name="setting_transition">Transition</string>
     <string name="transition_smooth">Smooth</string>
     <string name="transition_instant">Instant</string>

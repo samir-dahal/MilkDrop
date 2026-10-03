@@ -184,6 +184,45 @@
                     android:textColor="@color/overlay_content"
                     android:textSize="16sp" />
 
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchBeatCuts"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/setting_beat_cuts"
+                    android:textColor="@color/overlay_content"
+                    android:textSize="16sp" />
+
+                <TextView
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/groupPresetDuration"
+                    android:text="@string/setting_preset_duration" />
+
+                <RadioGroup
+                    android:id="@+id/groupPresetDuration"
+                    style="@style/SegmentedGroup">
+
+                    <RadioButton
+                        android:id="@+id/duration10"
+                        style="@style/Segment"
+                        android:text="@string/duration_10" />
+
+                    <RadioButton
+                        android:id="@+id/duration15"
+                        style="@style/Segment"
+                        android:text="@string/duration_15" />
+
+                    <RadioButton
+                        android:id="@+id/duration30"
+                        style="@style/Segment"
+                        android:text="@string/duration_30" />
+
+                    <RadioButton
+                        android:id="@+id/duration60"
+                        style="@style/Segment"
+                        android:text="@string/duration_60" />
+
+                </RadioGroup>
+
                 <TextView
                     style="@style/SettingLabel"
                     android:labelFor="@id/groupTransition"

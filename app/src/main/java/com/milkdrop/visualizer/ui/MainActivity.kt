@@ -58,6 +58,8 @@ class MainActivity : AppCompatActivity() {
     private var autoAdvanceEnabled = true
     private var shuffleEnabled = true
     private var hardCutEnabled = false
+    private var presetDurationIndex = 1
+    private var beatCutsEnabled = false
     private var allPresetEntries: List<PresetEntry> = emptyList()
     private var allPresetEntriesSource: List<String>? = null
     private var currentPlaylistPosition = 0
@@ -110,6 +112,8 @@ class MainActivity : AppCompatActivity() {
         autoAdvanceEnabled = settings.autoAdvanceEnabled
         shuffleEnabled = settings.shuffleEnabled
         hardCutEnabled = settings.hardCutEnabled
+        presetDurationIndex = settings.presetDurationIndex
+        beatCutsEnabled = settings.beatCutsEnabled
         fpsIndex = settings.fpsIndex
         qualityIndex = settings.qualityIndex
         restoreControlStates()
@@ -140,6 +144,8 @@ class MainActivity : AppCompatActivity() {
         updateShuffleButton()
         updatingControls = true
         binding.switchAutoAdvance.isChecked = autoAdvanceEnabled
+        binding.switchBeatCuts.isChecked = beatCutsEnabled
+        binding.groupPresetDuration.check(PRESET_DURATION_BUTTON_IDS[presetDurationIndex])
         binding.groupTransition.check(if (hardCutEnabled) R.id.transitionInstant else R.id.transitionSmooth)
         binding.groupFrameRate.check(FPS_BUTTON_IDS[fpsIndex])
         binding.groupQuality.check(QUALITY_BUTTON_IDS[qualityIndex])
@@ -156,6 +162,8 @@ class MainActivity : AppCompatActivity() {
         surfaceView.milkDropRenderer.shuffleEnabled = shuffleEnabled
         surfaceView.milkDropRenderer.autoAdvanceEnabled = autoAdvanceEnabled
         surfaceView.milkDropRenderer.instantTransitions = hardCutEnabled
+        surfaceView.milkDropRenderer.presetDurationSeconds = PRESET_DURATIONS_SECONDS[presetDurationIndex]
+        surfaceView.milkDropRenderer.beatCutsEnabled = beatCutsEnabled
         surfaceView.targetFps = FPS_OPTIONS[fpsIndex]
         applyQuality()
     }
@@ -380,6 +388,17 @@ class MainActivity : AppCompatActivity() {
             settings.autoAdvanceEnabled = checked
             surfaceView.milkDropRenderer.autoAdvanceEnabled = checked
         }
+        binding.switchBeatCuts.setOnCheckedChangeListener { _, checked ->
+            if (updatingControls) return@setOnCheckedChangeListener
+            beatCutsEnabled = checked
+            settings.beatCutsEnabled = checked
+            surfaceView.milkDropRenderer.beatCutsEnabled = checked
+        }
+        binding.groupPresetDuration.onUserSelection { id ->
+            presetDurationIndex = PRESET_DURATION_BUTTON_IDS.indexOf(id)
+            settings.presetDurationIndex = presetDurationIndex
+            surfaceView.milkDropRenderer.presetDurationSeconds = PRESET_DURATIONS_SECONDS[presetDurationIndex]
+        }
         binding.groupTransition.onUserSelection { id ->
             hardCutEnabled = id == R.id.transitionInstant
             settings.hardCutEnabled = hardCutEnabled
@@ -584,6 +603,9 @@ class MainActivity : AppCompatActivity() {
         const val DIVIDER_GAP_DP = 4
         const val LANDSCAPE_DIVIDER_HEIGHT_DP = 32
         const val LANDSCAPE_SHEET_WIDTH_DP = 480
+
+        val PRESET_DURATIONS_SECONDS = doubleArrayOf(10.0, 15.0, 30.0, 60.0)
+        val PRESET_DURATION_BUTTON_IDS = intArrayOf(R.id.duration10, R.id.duration15, R.id.duration30, R.id.duration60)
 
         // 0 = uncapped ("Max"). Index 0 (30fps) is the default performance-friendly setting.
         val FPS_OPTIONS = intArrayOf(30, 45, 60, 0)
