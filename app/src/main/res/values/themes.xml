@@ -1,6 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.MilkDrop" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
+        <!-- Switches and text cursors in the overlays: white, no brand accent over the visuals. -->
+        <item name="colorControlActivated">@color/overlay_content</item>
     </style>
 
     <style name="Theme.MilkDrop.Fullscreen" parent="Theme.MilkDrop">

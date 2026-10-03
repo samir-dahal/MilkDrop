@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play triangle and pause bars side by side: the app can't know whether the player is playing. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M3,6v12l8,-6zM14,6h2.5v12H14zM18.5,6H21v12h-2.5z" />
+</vector>

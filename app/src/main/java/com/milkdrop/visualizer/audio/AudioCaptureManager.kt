@@ -11,18 +11,12 @@ class AudioCaptureManager(
     private val context: Context,
     private val pcmSink: PcmSink,
 ) {
-    enum class SourceType { INTERNAL, MIC }
-
-    var currentSource: SourceType = SourceType.MIC
-        private set
-
     private var micSource: MicAudioSource? = null
     private var serviceConnection: ServiceConnection? = null
     private var boundService: AudioCaptureService? = null
 
     fun requestInternalCapture(resultCode: Int, data: Intent) {
         stopMic()
-        currentSource = SourceType.INTERNAL
         val intent = Intent(context, AudioCaptureService::class.java).apply {
             putExtra(AudioCaptureService.EXTRA_RESULT_CODE, resultCode)
             putExtra(AudioCaptureService.EXTRA_RESULT_DATA, data)
@@ -33,7 +27,6 @@ class AudioCaptureManager(
 
     fun startMic() {
         stopInternal()
-        currentSource = SourceType.MIC
         val source = MicAudioSource(pcmSink)
         micSource = source
         source.start()

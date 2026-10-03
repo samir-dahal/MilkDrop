@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- On/off control buttons (Shuffle): full white when on, dimmed when off. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/overlay_content" android:state_activated="true" />
+    <item android:color="@color/overlay_content_off" />
+</selector>

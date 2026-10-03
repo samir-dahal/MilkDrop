@@ -31,6 +31,7 @@ class MilkDropSurfaceView(
     private var frameIntervalNanos = 0L
     private var nextRenderNanos = 0L
     private var pacing = false
+    private var resolutionScale = 1f
 
     /**
      * Frame pacing is driven by vsync instead of sleeping on the GL thread. Sleeping after each
@@ -109,12 +110,21 @@ class MilkDropSurfaceView(
      * Must run after layout, since it needs the view's actual on-screen size.
      */
     fun setResolutionScale(scale: Float) {
-        post {
-            if (width > 0 && height > 0) {
-                val scaledWidth = (width * scale).toInt().coerceAtLeast(1)
-                val scaledHeight = (height * scale).toInt().coerceAtLeast(1)
-                holder.setFixedSize(scaledWidth, scaledHeight)
-            }
+        resolutionScale = scale
+        post { applyResolutionScale() }
+    }
+
+    /** Rotation resizes the view without recreating it; the fixed buffer size must follow. */
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        post { applyResolutionScale() }
+    }
+
+    private fun applyResolutionScale() {
+        if (width > 0 && height > 0) {
+            val scaledWidth = (width * resolutionScale).toInt().coerceAtLeast(1)
+            val scaledHeight = (height * resolutionScale).toInt().coerceAtLeast(1)
+            holder.setFixedSize(scaledWidth, scaledHeight)
         }
     }
 

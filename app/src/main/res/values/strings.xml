@@ -1,28 +1,40 @@
 <resources>
     <string name="app_name">MilkDrop</string>
-    <string name="btn_next">Next</string>
+
     <string name="btn_previous">Prev</string>
-    <string name="btn_shuffle_on">Shuffle: On</string>
-    <string name="btn_shuffle_off">Shuffle: Off</string>
-    <string name="btn_auto_on">Auto: On</string>
-    <string name="btn_auto_off">Auto: Off</string>
+    <string name="btn_next">Next</string>
+    <string name="btn_shuffle">Shuffle</string>
     <string name="btn_playlist">List</string>
-    <string name="btn_media_play_pause">Media</string>
-    <string name="audio_source_internal">Source: Internal</string>
-    <string name="audio_source_mic">Source: Mic</string>
+    <string name="btn_settings">Settings</string>
+    <string name="state_on">On</string>
+    <string name="state_off">Off</string>
+
+    <string name="media_previous">Previous track</string>
+    <string name="media_play_pause">Play or pause</string>
+    <string name="media_next">Next track</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_close">Close settings</string>
+    <string name="setting_auto_advance">Auto-advance</string>
+    <string name="setting_transition">Transition</string>
+    <string name="transition_smooth">Smooth</string>
+    <string name="transition_instant">Instant</string>
+    <string name="setting_frame_rate">Frame rate</string>
+    <string name="fps_30">30</string>
+    <string name="fps_45">45</string>
+    <string name="fps_60">60</string>
+    <string name="fps_max">Max</string>
+    <string name="setting_quality">Quality</string>
+    <string name="quality_low">Low</string>
+    <string name="quality_medium">Medium</string>
+    <string name="quality_high">High</string>
+    <string name="setting_audio_source">Audio source</string>
+    <string name="audio_source_phone">Phone audio</string>
+    <string name="audio_source_mic">Mic</string>
+
     <string name="playlist_search_hint">Search presets…</string>
     <string name="playlist_close">Close</string>
-    <string name="fps_30">FPS: 30</string>
-    <string name="fps_45">FPS: 45</string>
-    <string name="fps_60">FPS: 60</string>
-    <string name="fps_uncapped">FPS: Uncapped</string>
-    <string name="quality_high">Quality: High</string>
-    <string name="quality_medium">Quality: Medium</string>
-    <string name="quality_low">Quality: Low</string>
-    <string name="transition_smooth">Transition: Smooth</string>
-    <string name="transition_instant">Transition: Instant</string>
     <string name="presets_loading">Loading presets…</string>
     <string name="presets_none_found">No presets found. Add .milk files to MilkDropApp/presets, then reopen the app.</string>
     <string name="presets_need_access">Allow All files access so the app can read MilkDropApp/presets, then reopen the app.</string>
-    <string name="permissions_rationale">MilkDrop needs microphone and storage access to capture audio and load presets. Grant them to continue.</string>
 </resources>

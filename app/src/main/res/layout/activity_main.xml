@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
@@ -9,7 +10,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Plain shadowed text rather than a badge or panel, so it doesn't box off part of the visual. -->
+    <!-- Plain shadowed text rather than a badge or panel, so it doesn't box off part of the visual.
+         Shows the current preset's name, or a status message while presets load. -->
     <TextView
         android:id="@+id/presetStatus"
         android:layout_width="wrap_content"
@@ -17,129 +19,269 @@
         android:layout_gravity="top|center_horizontal"
         android:layout_marginHorizontal="24dp"
         android:gravity="center"
+        android:maxLines="2"
+        android:ellipsize="end"
         android:text="@string/presets_loading"
-        android:textColor="#E6FFFFFF"
+        android:textColor="@color/overlay_content"
         android:textSize="15sp"
         android:shadowColor="#CC000000"
         android:shadowRadius="6"
         android:shadowDy="1"
         android:visibility="gone" />
 
+    <!-- Portrait: preset controls above the media keys. Landscape (set in code, since rotation
+         doesn't recreate the activity): one row, preset controls | media keys. -->
     <LinearLayout
-        android:id="@+id/overlayControls"
+        android:id="@+id/controlBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:orientation="vertical"
-        android:background="#88000000"
-        android:paddingVertical="8dp"
+        android:gravity="center"
+        android:background="@color/overlay_bar"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="6dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/presetControls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btnPrevious"
+                style="@style/ControlButton"
+                app:drawableTopCompat="@drawable/ic_preset_previous"
+                android:text="@string/btn_previous" />
+
+            <TextView
+                android:id="@+id/btnNext"
+                style="@style/ControlButton"
+                app:drawableTopCompat="@drawable/ic_preset_next"
+                android:text="@string/btn_next" />
+
+            <TextView
+                android:id="@+id/btnShuffle"
+                style="@style/ControlButton"
+                app:drawableTopCompat="@drawable/ic_shuffle"
+                android:text="@string/btn_shuffle"
+                android:textColor="@color/toggle_content"
+                app:drawableTint="@color/toggle_content" />
+
+            <TextView
+                android:id="@+id/btnPlaylist"
+                style="@style/ControlButton"
+                app:drawableTopCompat="@drawable/ic_preset_list"
+                android:text="@string/btn_playlist" />
+
+            <TextView
+                android:id="@+id/btnSettings"
+                style="@style/ControlButton"
+                app:drawableTopCompat="@drawable/ic_settings"
+                android:text="@string/btn_settings" />
+
+        </LinearLayout>
+
+        <View
+            android:id="@+id/controlDivider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginVertical="4dp"
+            android:background="@color/overlay_divider" />
+
+        <LinearLayout
+            android:id="@+id/mediaControls"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btnMediaPrevious"
+                style="@style/MediaButton"
+                android:src="@drawable/ic_media_previous"
+                android:contentDescription="@string/media_previous" />
+
+            <ImageButton
+                android:id="@+id/btnMediaPlayPause"
+                style="@style/MediaButton"
+                android:src="@drawable/ic_media_play_pause"
+                android:contentDescription="@string/media_play_pause" />
+
+            <ImageButton
+                android:id="@+id/btnMediaNext"
+                style="@style/MediaButton"
+                android:src="@drawable/ic_media_next"
+                android:contentDescription="@string/media_next" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Every option visible at once; replaces the old tap-to-cycle buttons. -->
+    <LinearLayout
+        android:id="@+id/settingsSheet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:orientation="vertical"
+        android:background="@drawable/settings_sheet_background"
+        android:clickable="true"
+        android:focusable="false"
         android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center"
-            android:paddingBottom="6dp">
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp">
 
-            <Button
-                android:id="@+id/btnPrevious"
-                style="?android:attr/buttonStyleSmall"
+            <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/btn_previous" />
+                android:text="@string/settings_title"
+                android:textColor="@color/overlay_content"
+                android:textSize="18sp" />
 
-            <Button
-                android:id="@+id/btnNext"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_next" />
-
-            <Button
-                android:id="@+id/btnShuffle"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_shuffle_on" />
-
-            <Button
-                android:id="@+id/btnPlaylist"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_playlist" />
+            <ImageButton
+                android:id="@+id/btnCloseSettings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="12dp"
+                android:src="@drawable/ic_close"
+                app:tint="@color/overlay_content"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/settings_close" />
 
         </LinearLayout>
 
-        <LinearLayout
+        <ScrollView
+            android:id="@+id/settingsScroll"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
+            android:layout_height="wrap_content">
 
-            <Button
-                android:id="@+id/btnPlayPause"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:id="@+id/settingsContent"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_auto_on" />
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:paddingBottom="20dp">
 
-            <Button
-                android:id="@+id/btnMediaPlayPause"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_media_play_pause" />
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchAutoAdvance"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="@string/setting_auto_advance"
+                    android:textColor="@color/overlay_content"
+                    android:textSize="16sp" />
 
-            <Button
-                android:id="@+id/btnAudioSource"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/audio_source_mic" />
+                <TextView
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/groupTransition"
+                    android:text="@string/setting_transition" />
 
-        </LinearLayout>
+                <RadioGroup
+                    android:id="@+id/groupTransition"
+                    style="@style/SegmentedGroup">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:paddingTop="6dp">
+                    <RadioButton
+                        android:id="@+id/transitionSmooth"
+                        style="@style/Segment"
+                        android:text="@string/transition_smooth" />
 
-            <Button
-                android:id="@+id/btnFps"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/fps_30" />
+                    <RadioButton
+                        android:id="@+id/transitionInstant"
+                        style="@style/Segment"
+                        android:text="@string/transition_instant" />
 
-            <Button
-                android:id="@+id/btnQuality"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/quality_high" />
+                </RadioGroup>
 
-            <Button
-                android:id="@+id/btnTransition"
-                style="?android:attr/buttonStyleSmall"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/transition_smooth" />
+                <TextView
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/groupFrameRate"
+                    android:text="@string/setting_frame_rate" />
 
-        </LinearLayout>
+                <RadioGroup
+                    android:id="@+id/groupFrameRate"
+                    style="@style/SegmentedGroup">
+
+                    <RadioButton
+                        android:id="@+id/fps30"
+                        style="@style/Segment"
+                        android:text="@string/fps_30" />
+
+                    <RadioButton
+                        android:id="@+id/fps45"
+                        style="@style/Segment"
+                        android:text="@string/fps_45" />
+
+                    <RadioButton
+                        android:id="@+id/fps60"
+                        style="@style/Segment"
+                        android:text="@string/fps_60" />
+
+                    <RadioButton
+                        android:id="@+id/fpsMax"
+                        style="@style/Segment"
+                        android:text="@string/fps_max" />
+
+                </RadioGroup>
+
+                <TextView
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/groupQuality"
+                    android:text="@string/setting_quality" />
+
+                <RadioGroup
+                    android:id="@+id/groupQuality"
+                    style="@style/SegmentedGroup">
+
+                    <RadioButton
+                        android:id="@+id/qualityLow"
+                        style="@style/Segment"
+                        android:text="@string/quality_low" />
+
+                    <RadioButton
+                        android:id="@+id/qualityMedium"
+                        style="@style/Segment"
+                        android:text="@string/quality_medium" />
+
+                    <RadioButton
+                        android:id="@+id/qualityHigh"
+                        style="@style/Segment"
+                        android:text="@string/quality_high" />
+
+                </RadioGroup>
+
+                <TextView
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/groupAudioSource"
+                    android:text="@string/setting_audio_source" />
+
+                <RadioGroup
+                    android:id="@+id/groupAudioSource"
+                    style="@style/SegmentedGroup">
+
+                    <RadioButton
+                        android:id="@+id/audioSourcePhone"
+                        style="@style/Segment"
+                        android:text="@string/audio_source_phone" />
+
+                    <RadioButton
+                        android:id="@+id/audioSourceMic"
+                        style="@style/Segment"
+                        android:text="@string/audio_source_mic" />
+
+                </RadioGroup>
+
+            </LinearLayout>
+
+        </ScrollView>
 
     </LinearLayout>
 
