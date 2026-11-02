@@ -75,11 +75,42 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.cp
                     shader->SetUniformFloat("milkdrop_image_alpha", 1.0f);]=]
     [=[            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);]=]
-    [=[            // A bound sampler overrides glTexParameteri, including a named
-            // image's clamp/nearest descriptor. Shape feedback must repeat linearly.
+    [=[            // Match the sampler state left by BeatDrop's preceding passes:
+            // blur clamps; shader warp restores repeat; fixed warp uses wrap.
+            const bool repeat = !m_image.empty() || (!m_presetState.blurTexture.IsRequired() &&
+                (shaderWarp || *perFrameContext.wrap > 0.0001));
+            m_textureSampler.WrapMode(repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
             m_textureSampler.Bind(0);]=]
     [=[const auto iterations = m_thickOutline ? 4 : 1;]=]
     [=[const auto iterations = static_cast<int>(*m_perFrameContext.thick) != 0 ? 4 : 1;]=]
+)
+
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/BlurTexture.hpp
+    [=[    void SetRequiredBlurLevel(BlurLevel level);]=]
+    [=[    void SetRequiredBlurLevel(BlurLevel level);
+    bool IsRequired() const { return m_blurLevel != BlurLevel::None; }]=]
+)
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.hpp
+    [=[    PerPixelMesh();]=]
+    [=[    PerPixelMesh();
+    bool HasWarpShader() const { return m_warpShader != nullptr; }]=]
+)
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.hpp
+    [=[    void Draw();]=]
+    [=[    void Draw(const PerFrameContext& perFrameContext, bool shaderWarp);]=]
+    [=[class CustomShape]=] [=[class PerFrameContext;
+class CustomShape]=]
+)
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.cpp
+    [=[#include "PresetFileParser.hpp"]=]
+    [=[#include "PresetFileParser.hpp"
+#include "PerFrameContext.hpp"]=]
+    [=[void CustomShape::Draw()]=]
+    [=[void CustomShape::Draw(const PerFrameContext& perFrameContext, bool shaderWarp)]=]
+)
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropPreset.cpp
+    [=[        shape->Draw();]=]
+    [=[        shape->Draw(m_perFrameContext, m_perPixelMesh.HasWarpShader());]=]
 )
 
 # The old compositor was reading static INI values, silently ignoring equation
@@ -162,6 +193,40 @@ endforeach()
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.cpp
     [=[staticShaders->GetPresetWarpVertexShader(),]=]
     [=[milkdrop::CompatibleWarpVertexShader(staticShaders->GetPresetWarpVertexShader()),]=]
+)
+
+# MilkDrop's shader layer always binds sampler_main as wrap and sampler_fc_main as
+# clamp; bTexWrap only controls the fixed-function warp. projectM reused one
+# bTexWrap-driven sampler for the fixed warp and then rebound it on unit 0 after
+# the preset shader's descriptors were bound, so every warp shader got a clamped
+# sampler_main when bTexWrap=0. Presets which rely on wrap (e.g. Flexi - trickster
+# interstate, whose UVs are polar coordinates) rendered fully black. Only bind the
+# legacy sampler when there is no preset warp shader.
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.cpp
+    [=[    assert(!presetState.mainTexture.expired());
+    presetState.mainTexture.lock()->Bind(0);
+
+    // Set wrap mode and bind the sampler to get interpolation right.
+    if (*perFrameContext.wrap > 0.0001f)
+    {
+        m_perPixelSampler.WrapMode(GL_REPEAT);
+    }
+    else
+    {
+        m_perPixelSampler.WrapMode(GL_CLAMP_TO_EDGE);
+    }
+    m_perPixelSampler.Bind(0);]=]
+    [=[    assert(!presetState.mainTexture.expired());
+    if (!m_warpShader)
+    {
+        // Fixed-function warp: bTexWrap selects the sampler addressing mode.
+        presetState.mainTexture.lock()->Bind(0);
+        m_perPixelSampler.WrapMode(*perFrameContext.wrap > 0.0001f ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+        m_perPixelSampler.Bind(0);
+    }
+    // With a preset warp shader, its own sampler descriptors select the mode
+    // (sampler_main wraps, sampler_fc_main clamps). Do not override unit 0 with
+    // the bTexWrap sampler here.]=]
 )
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader.cpp
     [=[MilkdropStaticShaders::Get()->GetPresetWarpVertexShader(),]=]

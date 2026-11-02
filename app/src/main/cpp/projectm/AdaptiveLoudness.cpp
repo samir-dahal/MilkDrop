@@ -72,9 +72,11 @@ void Loudness::Update(const std::array<float, SpectrumSamples>& spectrum, double
     const double ratio = (level + excess * elapsed) / std::max(m_baseline, static_cast<double>(std::numeric_limits<float>::min()));
     // A soft ceiling prevents a quiet-to-loud change from destabilizing preset equations.
     m_relative = static_cast<float>(MaxRelative / (1.0 + (MaxRelative - 1.0) / std::max(ratio, std::numeric_limits<double>::min())));
-    // Instant attack; only the *_att values decay. Coefficients depend on time, not FPS.
-    m_attenuated = static_cast<float>(std::max(static_cast<double>(m_relative),
-                                             m_relative + (m_attenuated - m_relative) * release));
+    // *_att is a smoothed average, not a peak envelope. BeatDrop presets compare
+    // bass/bass_att (etc.) to detect attacks; forcing att >= current makes those
+    // tests impossible. Match its asymmetric 30-FPS attack/release coefficients.
+    const double smoothing = std::pow(m_relative > m_attenuated ? 0.2 : 0.5, elapsed * 30.0);
+    m_attenuated = static_cast<float>(m_attenuated * smoothing + m_relative * (1.0 - smoothing));
     const double levelAlpha = -std::expm1(-elapsed / LevelSeconds);
     m_baseline += levelAlpha * (level - m_baseline);
     const double fluxAlpha = -std::expm1(-elapsed / FluxSeconds);

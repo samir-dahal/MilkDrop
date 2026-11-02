@@ -20,6 +20,15 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Preserve shader-specific warp sampler bindings instead of overriding them with
+  the fixed-function `bTexWrap` sampler, restoring polar feedback in
+  `Flexi - trickster interstate`.
+- Accept both inline and hoisted upstream sampler declaration regexes in the
+  compatibility patch.
+- Restore smoothed `*_att` band values so beat-ratio tests can emit custom dots,
+  and match preceding-pass texture addressing for recursive feedback shapes.
+- Translate the HLSL identifier `active` safely for GLSL, fixing the warp shader
+  compile failure in `CaYaDev - Data Corridor`.
 - Preserve named shape image transparency, including the idle M and headphones,
   while retaining BeatDrop-compatible diffuse alpha for feedback shapes.
 - Use shape opacity independently of feedback texture alpha in legacy textured

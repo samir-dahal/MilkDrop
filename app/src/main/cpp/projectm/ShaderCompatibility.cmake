@@ -1,17 +1,17 @@
 # Extend the generated parser copy; leave the projectM submodule untouched.
-# "smooth" is legal in HLSL but is a reserved interpolation qualifier in GLSL.
+# HLSL permits names that GLSL reserves; rename declarations and references together.
 patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.h
     [=[s_numReservedWords = 9 + 24;]=]
-    [=[s_numReservedWords = 10 + 24;]=]
+    [=[s_numReservedWords = 11 + 24;]=]
     [=[char                m_matrixRowFunction[64];]=]
     [=[char                m_matrixRowFunction[64];
     char                m_matrixSetRowFunction[64];]=]
 )
 patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
     [=[kFirstBuiltinFunctionWord = 9;]=]
-    [=[kFirstBuiltinFunctionWord = 10;]=]
+    [=[kFirstBuiltinFunctionWord = 11;]=]
     [=["main",]=]
-    [=["main", "smooth",]=]
+    [=["main", "smooth", "active",]=]
     [=[m_matrixRowFunction[0]      = 0;]=]
     [=[m_matrixRowFunction[0]      = 0;
     m_matrixSetRowFunction[0]   = 0;]=]
