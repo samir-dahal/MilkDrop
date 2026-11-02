@@ -141,8 +141,11 @@ class MilkDropSurfaceView(
 
     private fun applyResolutionScale() {
         if (width > 0 && height > 0) {
-            val scaledWidth = castSize?.first ?: (width * resolutionScale).toInt().coerceAtLeast(1)
-            val scaledHeight = castSize?.second ?: (height * resolutionScale).toInt().coerceAtLeast(1)
+            // Cast dimensions describe the destination, just as the view dimensions
+            // describe the phone. Apply the same quality to either render target;
+            // the output compositor/encoder still fills its negotiated surface.
+            val scaledWidth = ((castSize?.first ?: width) * resolutionScale).toInt().coerceAtLeast(1)
+            val scaledHeight = ((castSize?.second ?: height) * resolutionScale).toInt().coerceAtLeast(1)
             holder.setFixedSize(scaledWidth, scaledHeight)
         }
     }

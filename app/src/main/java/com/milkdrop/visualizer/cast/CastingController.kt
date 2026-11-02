@@ -403,12 +403,12 @@ class CastingController(
                 if (output != null) {
                     if (outputSize != (w to h)) {
                         outputSize = w to h
-                        output?.resize(w, h); renderer.setCastSize(fitSize(w, h))
+                        output?.resize(w, h); renderer.setCastSize(w to h)
                     }
                     return@ReceiverPresentation
                 }
                 outputSize = w to h
-                val size = fitSize(w, h)
+                val size = w to h
                 val destination = VisualOutput(holder.surface, w, h, false, { error ->
                     main.post { fail(id, error) }
                 }, onStarted = {
@@ -701,9 +701,5 @@ class CastingController(
 
     private companion object {
         const val TAG = "MilkDropCast"
-        fun fitSize(w: Int, h: Int): Pair<Int, Int> {
-            val scale = minOf(1f, 1280f / w, 720f / h)
-            return (w * scale).toInt().coerceAtLeast(2) to (h * scale).toInt().coerceAtLeast(2)
-        }
     }
 }

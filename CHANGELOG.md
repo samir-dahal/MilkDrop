@@ -20,6 +20,8 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Apply fixed and Auto quality resolution scaling while casting, using the
+  negotiated cast size; remove the separate 720p Wireless Display render cap.
 - Accept spaced HLSL directives, comma-separated loop clauses, and correctly
   bound casts; support boolean saturate and packed float4 array initializers.
 - Initialize shader global arrays as arrays rather than out-of-bounds elements.
