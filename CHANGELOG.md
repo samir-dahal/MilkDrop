@@ -22,6 +22,8 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Preserve empty shader defines without consuming the next line, restoring
+  Heartfelt's post-processing flags, color treatment, and animation fades.
 - Preserve HLSL signed floating-point remainder for `%` and `fmod()`, correcting
   negative-input masks such as the striped background in Random Trippy Party.
 - Apply fixed and Auto quality resolution scaling while casting, using the

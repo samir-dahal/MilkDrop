@@ -1,4 +1,10 @@
 # HLSL permits whitespace between '#' and a directive's name.
+patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
+    [=[    // Prepare next token
+    m_tokenizer.Next();]=]
+    [=[    // Empty object-like defines end here; do not consume the next line.
+    m_tokenizer.Next(false);]=]
+)
 patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
     [=[        name = "mod";]=]
     [=[        name = "milkdrop_signed_remainder";]=]
