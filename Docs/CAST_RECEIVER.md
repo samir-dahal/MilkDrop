@@ -17,7 +17,11 @@ as a substitute for a key frame.
 The custom receiver reports whether it supports 1920×1080 at 60 FPS before encoding
 starts. The encoder prefers that mode when confirmed, then 1280×720 and smaller frames before
 30 FPS, requests realtime/no-reordering encoding, and increases bitrate with pixel
-count and frame rate. Unknown/default receiver capabilities keep the 720p ceiling.
+count and frame rate. The standard Google Cast video fallback and direct MilkDrop Live
+connection also try 1080p first, then smaller frames if the sender's encoder cannot
+configure that mode. Receiver decoding limits still apply; these two paths do not
+negotiate decoder capabilities. A custom receiver that explicitly reports no Full HD
+support retains its lower-resolution modes.
 Android 9 remains supported, with codec/resolution fallbacks.
 Resolution, FPS and latency depend on both devices, the preset and the LAN. This is
 not zero latency, and no end-to-end latency figure is claimed without physical testing.

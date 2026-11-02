@@ -6,6 +6,8 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Prefer 1080p encoding for standard Google Cast fallback and direct MilkDrop Live,
+  retaining lower-resolution encoder fallbacks.
 - Use a quality dropdown with Auto and eleven resolution tiers from 10% to 100%.
   Auto respects the saved frame-rate limit and adjusts resolution around 50–60 FPS,
   scaling the range down for intentional limits below 50 FPS.

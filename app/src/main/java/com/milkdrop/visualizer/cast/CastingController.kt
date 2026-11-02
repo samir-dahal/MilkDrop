@@ -442,7 +442,8 @@ class CastingController(
                 val stream = pendingServer
                 pendingEncoder = VisualStreamEncoder(stream, onReady = {
                     main.post { if (id == generation && session === s && started) loadStream(s, stream.url(address), id) }
-                }, onError = { error -> main.post { fail(id, error) } }, requestedFramesPerSecond = frameRate)
+                }, onError = { error -> main.post { fail(id, error) } },
+                    requestedFramesPerSecond = frameRate, fullHdSupported = true)
                 val video = pendingEncoder
                 main.post {
                     if (id != generation || !started || closed) {
@@ -550,7 +551,8 @@ class CastingController(
             try {
                 sender.connect(target, "${Build.MANUFACTURER} ${Build.MODEL}".trim())
                 video = VisualStreamEncoder(onReady = {},
-                    onError = { error -> main.post { fail(id, error) } }, direct = sender, requestedFramesPerSecond = frameRate)
+                    onError = { error -> main.post { fail(id, error) } }, direct = sender,
+                    requestedFramesPerSecond = frameRate, fullHdSupported = true)
                 val pending = video
                 main.post {
                     if (id != generation || !started || closed) {
