@@ -42,9 +42,14 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader
 )
 
 # Strip complete sampler declarations, never function sampler parameters.
+# Upstream (eae22de) hoisted the regex into a static `samplerDeclaration` and erases it through
+# Utils::EraseRegexMatches(), which runs the regex with match_continuous on a sub-range starting at
+# "sampler". That would make our leading \b always succeed, so use a plain regex_replace instead.
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader.cpp
-    [=[std::regex("sampler(2D|3D|)(\\s+|\\().*")]=]
-    [=[std::regex(R"(\bsampler(?:2D|3D|CUBE|1D)?[ \t]+[A-Za-z_]\w*(?:[ \t]*,[ \t]*[A-Za-z_]\w*)*[ \t]*;)")]=]
+    [=[samplerDeclaration("sampler(2D|3D|)(\\s+|\\().*")]=]
+    [=[samplerDeclaration(R"(\bsampler(?:2D|3D|CUBE|1D)?[ \t]+[A-Za-z_]\w*(?:[ \t]*,[ \t]*[A-Za-z_]\w*)*[ \t]*;)")]=]
+    [=[Utils::EraseRegexMatches(sourcePreprocessed, "sampler", samplerDeclaration);]=]
+    [=[sourcePreprocessed = std::regex_replace(sourcePreprocessed, samplerDeclaration, "");]=]
 )
 
 # Plain texture names may also be declared with HLSL 1D/cube sampler syntax.
