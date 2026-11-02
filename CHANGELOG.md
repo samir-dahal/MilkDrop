@@ -20,6 +20,12 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Accept spaced HLSL directives, comma-separated loop clauses, and correctly
+  bound casts; support boolean saturate and packed float4 array initializers.
+- Initialize shader global arrays as arrays rather than out-of-bounds elements.
+- Preserve the base video-echo passes at zero gamma, restoring legacy presets
+  that rendered black or solid white.
+- Discover `.jfif` JPEG textures, including AVS Swirling's Pattern_047 image.
 - Match BeatDrop's preset beat-variable analysis: zero-padded stereo spectrum,
   inclusive frequency bands, and raw-band temporal averages. This corrects the
   audio-driven physics and color ratios in Flexi's recursive shape presets.

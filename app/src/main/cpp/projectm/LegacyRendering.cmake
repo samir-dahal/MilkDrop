@@ -172,12 +172,6 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/VideoEcho.cpp
     [=[            m_shade[i][k] = 0.5f + 0.5f * m_shade[i][k];
             const float amount = m_presetState.shader > 0.001f ? m_presetState.shader : 0.0f;
             m_shade[i][k] = m_shade[i][k] * amount + (1.0f - amount);]=]
-    [=[                mix * m_shade[vertex][0],
-                mix * m_shade[vertex][1],
-                mix * m_shade[vertex][2],]=]
-    [=[                std::min(gammaAdj, 1.0f) * mix * m_shade[vertex][0],
-                std::min(gammaAdj, 1.0f) * mix * m_shade[vertex][1],
-                std::min(gammaAdj, 1.0f) * mix * m_shade[vertex][2],]=]
 )
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/Filters.hpp
     [=[#include "PresetState.hpp"]=]

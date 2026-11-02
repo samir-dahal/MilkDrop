@@ -46,6 +46,7 @@ patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
 )
 
 # Legacy D3D presets frequently use uninitialized numeric accumulators as zero.
+include(${CMAKE_CURRENT_LIST_DIR}/ShaderLanguageCompatibility.cmake)
 # Make that behavior explicit instead of depending on driver register contents.
 patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
     [=[void GLSLGenerator::OutputExpression(HLSLExpression* expression, const HLSLType* dstType)
