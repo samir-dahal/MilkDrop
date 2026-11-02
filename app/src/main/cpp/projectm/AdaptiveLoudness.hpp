@@ -21,16 +21,12 @@ public:
     auto AverageRelative() const -> float { return m_attenuated; }
 
 private:
-    std::array<float, SpectrumSamples> m_weights{};
-    std::array<float, SpectrumSamples> m_inverseEqualizer{};
-    std::array<float, SpectrumSamples> m_previous{};
-    float m_weightSum{};
-    double m_baseline{};
-    double m_fluxMean{};
-    double m_fluxVariance{};
+    int m_firstBin{};
+    int m_lastBin{};
+    double m_average{};
+    double m_longAverage{};
     float m_relative{};
     float m_attenuated{};
-    bool m_initialized{};
 };
 
 } // namespace Audio

@@ -20,6 +20,11 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Match BeatDrop's preset beat-variable analysis: zero-padded stereo spectrum,
+  inclusive frequency bands, and raw-band temporal averages. This corrects the
+  audio-driven physics and color ratios in Flexi's recursive shape presets.
+- Pack custom-shape colors, opacity and outlines to 8-bit values before
+  interpolation, matching BeatDrop's truncation and byte wrapping in recursive effects.
 - Preserve shader-specific warp sampler bindings instead of overriding them with
   the fixed-function `bTexWrap` sampler, restoring polar feedback in
   `Flexi - trickster interstate`.

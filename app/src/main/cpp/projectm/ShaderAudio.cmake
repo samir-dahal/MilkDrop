@@ -38,10 +38,30 @@ patch_projectm_source(Audio src/libprojectM/Audio/PCM.hpp
     }]=]
     [=[    std::mutex m_pcmMutex;]=]
     [=[    milkdrop::ShaderAudioAnalysis m_shaderAudioInput;
+    // BeatDrop analyzes 576 captured samples in a zero-padded 1024-sample window.
+    // Keep this separate from the public custom-wave spectrum and shader FFT.
+    MilkdropFFT m_beatFFT{SpectrumSamples * 2, SpectrumSamples, true};
     std::mutex m_pcmMutex;]=]
 )
 
 patch_projectm_source(Audio src/libprojectM/Audio/PCM.cpp
+    [=[    // Beat detection should reflect both channels; average L+R into a mono spectrum.
+    SpectrumBuffer monoSpectrum{};
+    for (size_t sample = 0; sample < SpectrumSamples; sample++)
+    {
+        monoSpectrum[sample] = 0.5f * (m_spectrumL[sample] + m_spectrumR[sample]);
+    }]=]
+    [=[    // Use BeatDrop's unfiltered, zero-padded capture for beat variables only.
+    static_assert(AudioBufferSamples <= SpectrumSamples * 2, "Beat FFT window is smaller than the capture");
+    std::vector<float> beatInput(SpectrumSamples * 2, 0.0f);
+    std::vector<float> beatLeft, beatRight;
+    std::copy(m_waveformL.begin(), m_waveformL.end(), beatInput.begin());
+    m_beatFFT.TimeToFrequencyDomain(beatInput, beatLeft);
+    std::copy(m_waveformR.begin(), m_waveformR.end(), beatInput.begin());
+    m_beatFFT.TimeToFrequencyDomain(beatInput, beatRight);
+    SpectrumBuffer monoSpectrum{};
+    for (size_t sample = 0; sample < SpectrumSamples; sample++)
+        monoSpectrum[sample] = 0.5f * (beatLeft[sample] + beatRight[sample]);]=]
     [=[    std::lock_guard<std::mutex> lock(m_pcmMutex);
     for (size_t i = 0; i < sampleCount; i++)]=]
     [=[    std::lock_guard<std::mutex> lock(m_pcmMutex);

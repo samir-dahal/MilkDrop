@@ -3,19 +3,14 @@
 namespace libprojectM {
 namespace Audio {
 namespace BeatAnalysisConfig {
-// Frequency boundaries are build options; sensitivity is learned from the incoming spectrum.
+// BeatDrop-compatible frequency boundaries; relative levels use a long-term average.
 constexpr double SampleRate = @MILKDROP_ANALYSIS_SAMPLE_RATE@;
 constexpr double BassLow = @MILKDROP_BASS_LOW_HZ@;
 constexpr double BassHigh = @MILKDROP_BASS_HIGH_HZ@;
 constexpr double MidHigh = @MILKDROP_MID_HIGH_HZ@;
 constexpr double TrebleHigh = @MILKDROP_TREBLE_HIGH_HZ@;
-constexpr double LevelSeconds = @MILKDROP_BEAT_LEVEL_SECONDS@;
-constexpr double FluxSeconds = @MILKDROP_BEAT_FLUX_SECONDS@;
-constexpr double ReleaseSeconds = @MILKDROP_BEAT_RELEASE_SECONDS@;
-constexpr double MaxRelative = @MILKDROP_BEAT_MAX_RELATIVE@;
-static_assert(SampleRate > 0 && BassLow > 0 && BassLow < BassHigh && BassHigh < MidHigh);
-static_assert(MidHigh < TrebleHigh && LevelSeconds > 0 && FluxSeconds > 0 && ReleaseSeconds > 0);
-static_assert(MaxRelative > 1);
+static_assert(SampleRate > 0 && BassLow >= 0 && BassLow < BassHigh && BassHigh < MidHigh);
+static_assert(MidHigh < TrebleHigh);
 } // namespace BeatAnalysisConfig
 } // namespace Audio
 } // namespace libprojectM

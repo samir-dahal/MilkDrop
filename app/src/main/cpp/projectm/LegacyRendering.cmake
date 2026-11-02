@@ -65,6 +65,41 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.hp
     Renderer::Mesh m_fillMesh;]=]
 )
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.cpp
+    [=[        colorData[0] = Renderer::Color::Modulo(Renderer::Color(static_cast<float>(*m_perFrameContext.r),
+                                                               static_cast<float>(*m_perFrameContext.g),
+                                                               static_cast<float>(*m_perFrameContext.b),
+                                                               static_cast<float>(*m_perFrameContext.a)));
+
+        colorData[1] = Renderer::Color::Modulo(Renderer::Color(static_cast<float>(*m_perFrameContext.r2),
+                                                               static_cast<float>(*m_perFrameContext.g2),
+                                                               static_cast<float>(*m_perFrameContext.b2),
+                                                               static_cast<float>(*m_perFrameContext.a2)));]=]
+    [=[        // D3DCOLOR packs the double-valued equation result before interpolation.
+        // Keep truncation toward zero and byte wrapping, including negative values.
+        // Floating modulo alone changes opacity on every recursive feedback pass.
+        const auto packedChannel = [](double value) -> float {
+            const double scaled = value * 255.0;
+            if (!std::isfinite(scaled)) return 0.0f;
+            double byte = std::fmod(std::trunc(scaled), 256.0);
+            if (byte < 0.0) byte += 256.0;
+            return static_cast<float>(byte / 255.0);
+        };
+        colorData[0] = Renderer::Color(packedChannel(*m_perFrameContext.r),
+                                      packedChannel(*m_perFrameContext.g),
+                                      packedChannel(*m_perFrameContext.b),
+                                      packedChannel(*m_perFrameContext.a));
+        colorData[1] = Renderer::Color(packedChannel(*m_perFrameContext.r2),
+                                      packedChannel(*m_perFrameContext.g2),
+                                      packedChannel(*m_perFrameContext.b2),
+                                      packedChannel(*m_perFrameContext.a2));]=]
+    [=[                             static_cast<float>(*m_perFrameContext.border_r),
+                             static_cast<float>(*m_perFrameContext.border_g),
+                             static_cast<float>(*m_perFrameContext.border_b),
+                             static_cast<float>(*m_perFrameContext.border_a));]=]
+    [=[                             packedChannel(*m_perFrameContext.border_r),
+                             packedChannel(*m_perFrameContext.border_g),
+                             packedChannel(*m_perFrameContext.border_b),
+                             packedChannel(*m_perFrameContext.border_a));]=]
     [=[            auto textureAspectY = m_presetState.renderContext.aspectY;]=]
     [=[            auto textureAspectY = m_presetState.renderContext.aspectY;
             // Reset for every instance: the shared shader must not inherit a named

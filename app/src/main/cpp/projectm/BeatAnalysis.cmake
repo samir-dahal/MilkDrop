@@ -1,24 +1,19 @@
 # Replace only projectM's band analysis, in build-directory copies. Capture APIs, audio
 # modes, waveform data, and the spectrum exposed to presets are unchanged.
 set(MILKDROP_ANALYSIS_SAMPLE_RATE 44100 CACHE STRING "Legacy band-analysis frequency reference in Hz (shader FFT uses capture metadata)")
-set(MILKDROP_BASS_LOW_HZ 20 CACHE STRING "Lowest analyzed bass frequency")
-set(MILKDROP_BASS_HIGH_HZ 250 CACHE STRING "Bass/mid crossover")
+set(MILKDROP_BASS_LOW_HZ 0 CACHE STRING "Lowest analyzed bass frequency")
+set(MILKDROP_BASS_HIGH_HZ 200 CACHE STRING "Bass/mid crossover")
 set(MILKDROP_MID_HIGH_HZ 4000 CACHE STRING "Mid/treble crossover")
 set(MILKDROP_TREBLE_HIGH_HZ 20000 CACHE STRING "Highest analyzed treble frequency (clamped to Nyquist)")
-set(MILKDROP_BEAT_LEVEL_SECONDS 1.5 CACHE STRING "Adaptive loudness reference time")
-set(MILKDROP_BEAT_FLUX_SECONDS 0.5 CACHE STRING "Adaptive onset noise statistics time")
-set(MILKDROP_BEAT_RELEASE_SECONDS 0.1 CACHE STRING "Attenuated beat release time")
-set(MILKDROP_BEAT_MAX_RELATIVE 8 CACHE STRING "Soft ceiling for relative band values")
 
-foreach(OPTION IN ITEMS ANALYSIS_SAMPLE_RATE BASS_LOW_HZ BASS_HIGH_HZ MID_HIGH_HZ TREBLE_HIGH_HZ
-                        BEAT_LEVEL_SECONDS BEAT_FLUX_SECONDS BEAT_RELEASE_SECONDS BEAT_MAX_RELATIVE)
+foreach(OPTION IN ITEMS ANALYSIS_SAMPLE_RATE BASS_LOW_HZ BASS_HIGH_HZ MID_HIGH_HZ TREBLE_HIGH_HZ)
     if(NOT "${MILKDROP_${OPTION}}" MATCHES "^[0-9]+([.][0-9]+)?$")
         message(FATAL_ERROR "MILKDROP_${OPTION} must be a positive number")
     endif()
 endforeach()
 
-# Analysis compensates the legacy FFT weighting. Fail explicitly if master changes that
-# contract, instead of silently interpreting differently weighted bins as physical bands.
+# BeatDrop's band sums use this legacy FFT weighting. Fail explicitly if master
+# changes it instead of silently changing the beat-variable response.
 file(READ ${PROJECTM_SOURCE_DIR}/src/libprojectM/Audio/MilkdropFFT.cpp FFT_SOURCE)
 foreach(EXPECTED IN ITEMS "m_numFrequencies(samplesOut * 2)" "float const scaling = -0.02f;"
                           "scaling * std::log(static_cast<float>(m_numFrequencies / 2 - i) * inverseHalfNumFrequencies)")
