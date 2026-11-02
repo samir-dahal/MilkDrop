@@ -22,6 +22,8 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Preserve HLSL signed floating-point remainder for `%` and `fmod()`, correcting
+  negative-input masks such as the striped background in Random Trippy Party.
 - Apply fixed and Auto quality resolution scaling while casting, using the
   negotiated cast size; remove the separate 720p Wireless Display render cap.
 - Accept spaced HLSL directives, comma-separated loop clauses, and correctly

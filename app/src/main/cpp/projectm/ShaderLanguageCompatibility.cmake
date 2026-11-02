@@ -1,4 +1,24 @@
 # HLSL permits whitespace between '#' and a directive's name.
+patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
+    [=[        name = "mod";]=]
+    [=[        name = "milkdrop_signed_remainder";]=]
+    [=[            m_writer.Write("mod(");]=]
+    [=[            m_writer.Write("milkdrop_signed_remainder(");]=]
+    [=[    // Output the special function used to access rows in a matrix.]=]
+    [=[    // HLSL remainder truncates toward zero; GLSL mod uses floor. Keep
+    // operands as function parameters so side effects are evaluated only once.
+    for (int n = 1; n <= 4; ++n)
+    {
+        const std::string type = n == 1 ? "float" : "vec" + std::to_string(n);
+        m_writer.WriteLine(0, "%s milkdrop_signed_remainder(%s x, %s y) { return x - y * trunc(x / y); }", type.c_str(), type.c_str(), type.c_str());
+        if (n > 1)
+        {
+            m_writer.WriteLine(0, "%s milkdrop_signed_remainder(%s x, float y) { return x - y * trunc(x / y); }", type.c_str(), type.c_str());
+            m_writer.WriteLine(0, "%s milkdrop_signed_remainder(float x, %s y) { return x - y * trunc(x / y); }", type.c_str(), type.c_str());
+        }
+    }
+    // Output the special function used to access rows in a matrix.]=]
+)
 patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLTokenizer.cpp
     [=[    // Must be an identifier or a reserved word.]=]
     [=[    if (m_buffer[0] == '#')
