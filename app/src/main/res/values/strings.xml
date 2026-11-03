@@ -19,7 +19,7 @@
     <string name="cast_name_permission">Optional: allow Nearby devices or Location access to identify your connected TV or projector. Casting still works without it.</string>
     <string name="cast_control_message_buffered">Your visuals are playing on your TV or projector. Google Cast video may be several seconds behind. Control presets and settings from this device.</string>
     <string name="cast_choose_device">Cast to</string>
-    <string name="cast_wireless_settings">Enable/Disable wireless display</string>
+    <string name="cast_wireless_settings">Wireless display / Miracast…</string>
     <string name="cast_wireless_description">Open your phone’s connection settings to find Miracast or Smart View displays. After connecting, return to MilkDrop. Available options depend on your phone and TV.</string>
     <string name="cast_wireless_unavailable">Wireless display settings aren’t available on this device.</string>
     <string name="cast_device">TV or projector</string>

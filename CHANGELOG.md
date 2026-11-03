@@ -6,6 +6,10 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Restore the “Wireless display / Miracast…” shortcut label; Android owns the
+  wireless-display toggle wording in its system Settings screen.
+- Preserve function-like shader macro grouping, allowing Carnival Ride's
+  multi-statement distance-field macros to compile.
 - Prefer 1080p encoding for standard Google Cast fallback and direct MilkDrop Live,
   retaining lower-resolution encoder fallbacks.
 - Use a quality dropdown with Auto and eleven resolution tiers from 10% to 100%.

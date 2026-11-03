@@ -1,3 +1,16 @@
+# Function-like macros substitute tokens, including multiple statements. Do not
+# invent parentheses around their bodies; authors supply grouping when needed.
+patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
+    [=[    // Surround macro definition with parenthesis
+    sourcePreprocessed.append("(");]=]
+    [=[    // Preserve the function-like macro's original grouping.
+    sourcePreprocessed.append(" ");]=]
+    [=[    // Surround macro definition with parenthesis
+    sourcePreprocessed.append(")");]=]
+    [=[    // Separate the expansion from the following token.
+    sourcePreprocessed.append(" ");]=]
+)
+
 # HLSL permits whitespace between '#' and a directive's name.
 patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
     [=[    // Prepare next token
