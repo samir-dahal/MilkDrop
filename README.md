@@ -6,7 +6,8 @@ textures loaded from external storage. Not intended for Play Store distribution.
 
 ## Building
 
-Requires Android SDK with NDK `27.0.12077973` and CMake `3.22.1` installed, and a JDK 17+.
+Requires Android SDK with NDK `27.0.12077973` and CMake `3.22.1` installed. Use JDK 17,
+as used by CI.
 `local.properties` must point `sdk.dir` at your SDK.
 
 ```bash
@@ -26,7 +27,7 @@ git submodule update --init --remote native/projectm
 git -C native/projectm submodule update --init --recursive
 ```
 
-For the optimized, installable release APK, see [Docs/RELEASE_BUILD.md](Docs/RELEASE_BUILD.md).
+For the optimized, installable release APK, see [release build instructions](Docs/RELEASE_BUILD.md).
 
 GitHub Actions builds the release APK on pushes, pull requests, and manual runs of **Build
 Android APK**, fetching the latest projectM `master` on each run and logging the commit used.
@@ -37,19 +38,18 @@ may require uninstalling the existing app first.
 
 ## Audio reaction
 
-The native projectM build uses adaptive band analysis: bass **20–250 Hz**, mid
-**250–4,000 Hz**, and treble **4,000–20,000 Hz**. Each band learns its recent loudness
-and spectral-change statistics. Sudden attacks receive extra emphasis above the learned
-variation, while steady audio stays near the preset convention of `1.0`. Silent input
-produces zero immediate band values; the `bass_att`, `mid_att`, and `treb_att` values
-decay smoothly. Timing follows elapsed seconds rather than frame counts.
+The native projectM build follows BeatDrop's band analysis: bass **0–200 Hz**, mid
+**200–4,000 Hz**, and treble **4,000–20,000 Hz**. Band sums are compared with a
+long-term average to produce relative loudness around the preset convention of `1.0`.
+The attenuated values use attack/release smoothing. Timing follows elapsed seconds
+rather than depending on the selected rendering frame rate.
 
 This is applied to build-directory copies of projectM's `Loudness` implementation; the
 submodule and waveform/spectrum data used by presets are unchanged.
 Frequency boundaries and response times are CMake cache options in
 `app/src/main/cpp/projectm/BeatAnalysis.cmake`; sensitivity is learned automatically rather
-than requiring a fixed input-volume threshold. For example, pass
-`-DMILKDROP_BASS_HIGH_HZ=200` as a native CMake argument to use a 200 Hz crossover.
+than requiring a fixed input-volume threshold. The default bass crossover is 200 Hz. pass
+`-DMILKDROP_BASS_HIGH_HZ=250` as a native CMake argument to use a 250 Hz crossover.
 
 The beat-analysis frequency reference is 44,100 Hz, matching Mic audio capture. Internal
 uses that reference for beat detection too; its physical band boundaries may differ if
@@ -79,7 +79,8 @@ at `assets/licenses/BeatDrop.txt`.
 
 ## Setting up presets
 
-On startup, after storage access is granted, the app creates any missing folders on external
+Installing the APK alone does not create the shared folders. On startup, after storage
+access is granted, the app creates any missing folders on external
 storage and reuses existing folders and their contents:
 
 - `/storage/emulated/0/MilkDropApp/presets/` — drop preset pack folders here (e.g. "Cream of
@@ -193,9 +194,10 @@ MilkDrop streams its visual framebuffer; its network video streams carry no audi
 Android manages audio routing and whole-screen mirroring for system wireless displays.
 Existing audio modes keep feeding projectM. Casting runs only while MilkDrop is in the foreground and stops on
 app pause, disconnection or failure; the phone then resumes local visuals. Network video
-encoding uses up to 960×544 with negotiated frame rates and a 640×368 fallback for older
-devices. Android 9 remains the minimum supported version. Device discovery and playback
-still need verification on physical receivers; a compatible receiver must advertise a service or route
+encoding prefers up to 1920×1080 where supported, with lower-resolution and frame-rate
+fallbacks. The selected quality scales the rendered image before encoding; it does not
+guarantee that the encoded stream uses the same dimensions. Android 9 remains the minimum
+supported version. A compatible receiver must advertise a service or route
 before the Cast button can appear.
 
 Preset names, favourites, and the resume preset follow the filename confirmed by a successful
@@ -221,19 +223,27 @@ Preset equation variables `aspectx` and `aspecty` also become `1.0` in screen-de
 - **Change on big beats** — also switch on a sudden jump in loudness.
 - **Preset name during transitions** — show the brief name popup on preset changes. On by
   default and saved across launches; turning it off keeps the name available with the sidebar open.
-- **Time per preset** — 10, 15, 20, 25, 30, 45 or 60 seconds. Changing it restarts the countdown.
+- **Time per preset** — 5, 10, 15, 20, 25, 30, 45 or 60 seconds. Changing it restarts the countdown.
 - **Additional random time** — Off, 5, 10, 15, 20, 25 or 30 seconds. Adds a fresh random amount
   from zero up to the selected limit per preset. For example, 15 s plus up to 5 s means 15–20 s.
   Off is the default. Changing the limit also restarts the countdown.
-- **Transition time** — 0.5, 1, 1.5, 1.7 (default), 2, 2.5, 3 or 5 seconds, or Random.
+- **Transition time** — Random, 0 s (Instant), 0.5, 1, 1.5, 1.7 (default), 2, 2.5, 3 or 5 seconds.
   Random picks one of those fixed durations independently for each preset change, including
   automatic changes. The same duration drives the timer and rendered blend. Changes apply
   to the next blend, preserving any blend already in progress.
-- **Transition** — Smooth blends using Transition time; Instant cuts straight to the next preset.
 - **Frame rate** — 24, 30, 45, 50, 60, 120 or Max (Unlimited). Max removes the app's cap;
   rendering still follows display refresh and device performance. Network casting also follows
   negotiated encoder/receiver limits. Existing saved FPS choices are preserved when updating.
-- **Quality** — render resolution (High / Medium / Low). Low also uses a coarser warp mesh.
+- **Per-point mesh size X/Y** — independent sliders and editable numbers from 8 to 300;
+  default 32×24. Higher values increase warp detail and processing cost.
+- **Quality** — Auto or 10%, 15%, 25%, 35%, 40%, 50%, 65%, 70%, 75%, 85% or 100%.
+  Percentages scale each render dimension, not total pixel count. Quality never changes
+  mesh size. Auto starts at the highest tier and adjusts from measured FPS while retaining
+  the selected frame-rate limit. Two consecutive low-FPS samples lower one tier; reaching
+  the target permits one step up per second. At a 60 Hz target, 50–59 FPS holds steady and
+  60 FPS permits an upgrade. Lower intentional frame-rate limits use a proportional band.
+- **Swipe gestures** — enable or disable the visualization's swipe shortcuts. Pointer
+  variables continue working when shortcuts are disabled.
 - **Screen-Dependent Render Mode** — fit custom waves, shapes, built-in waves, and per-vertex
   motion to full-screen coordinates, following BeatDrop's screen-dependent convention. Off by
   default for standard projectM rendering. Applies immediately and is saved across launches.
@@ -246,7 +256,13 @@ Preset equation variables `aspectx` and `aspecty` also become `1.0` in screen-de
   - *Microphone* — the microphone; works with any player and picks up the room.
   - *Internal* — what the phone plays through Android's `Visualizer` API, without a prompt.
     Apps that block capture come through silent.
-- **Audio sensitivity** — 0–10× input gain for the visuals; default 1.0×.
+- **Stereo Internal audio** — optional Android 10+ playback capture, off by default.
+  Requires Android's capture-consent dialog. Canceling or dismissing consent turns this
+  setting off and retains mono Internal capture. Android 9 keeps mono Internal and
+  disables the stereo switch. Microphone capture requests stereo independently and
+  falls back to mono when unsupported. See [capture details](Docs/SHADER_INPUTS.md).
+- **Audio sensitivity** — 0–25× input gain for the visuals; default 1.0×, with a Reset
+  button beside the slider.
 - **FFT Shader Scaling** — 0–2; default 0.45.
 - **FFT Shader Noise Floor** — 0–1; default 0.10.
 
@@ -264,8 +280,8 @@ a newer upstream revision that the installed app does not contain. FPS describes
 renderer; it does not measure a casting receiver's playback rate.
 
 The app requires Android 9 (API 28) or newer and a GPU with working OpenGL ES 3.0 support.
-The unified APK includes 32-bit and 64-bit ARM and x86 builds. Devices that report low RAM
-start with Low quality unless a quality setting has already been saved.
+The unified APK includes 32-bit and 64-bit ARM and x86 builds. New installations default
+to Auto quality; saved quality and mesh choices are retained across launches.
 
 ### TVs and projectors
 

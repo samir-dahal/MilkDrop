@@ -4,6 +4,12 @@ The custom receiver in `cast-receiver/` opens automatically when you tap a Googl
 device in MilkDrop's Cast chooser. No second Android app is installed on the TV. The
 phone still renders the presets and sends only the finished visualizer video.
 
+This is one of three connection paths: the custom Google Cast web receiver described
+here, the default Google Cast player used when no custom app ID is configured, and a
+direct MilkDrop Live receiver running the Android app on a TV. Android's Wireless
+Display / Miracast route is separate. See [casting controls](../README.md#casting-visuals)
+for choosing and stopping each connection type.
+
 ## What changes
 
 Instead of a three-second HLS playlist and Google's default video player, the phone
@@ -23,6 +29,11 @@ configure that mode. Receiver decoding limits still apply; these two paths do no
 negotiate decoder capabilities. A custom receiver that explicitly reports no Full HD
 support retains its lower-resolution modes.
 Android 9 remains supported, with codec/resolution fallbacks.
+The phone's Quality setting scales the visualizer's render dimensions on casting paths
+as well as locally; mesh size remains independent. Encoded video dimensions are negotiated
+separately, so a lower-quality render can be scaled into a 1080p stream. A 1080p encoder
+mode does not imply that the preset was rendered at full resolution. Frame-rate settings
+remain subject to encoder, display and receiver limits.
 Resolution, FPS and latency depend on both devices, the preset and the LAN. This is
 not zero latency, and no end-to-end latency figure is claimed without physical testing.
 Google's own application-launch screen can still appear before the hosted receiver loads.
@@ -64,7 +75,8 @@ real devices. Do not expose or port-forward the phone's stream server to the int
 
 ## Validation on receivers
 
-Test at least the Philips TV, another recent Cast receiver, and an older receiver.
+For a new receiver or firmware version, test the connection on the target hardware.
+Include the Philips TV, another recent Cast receiver, and an older receiver when available.
 Check rapid preset changes, complex presets, reconnects, Stop cast, screen rotation,
 background/foreground transitions and a slow or temporarily disconnected Wi-Fi link.
 Confirm that stopping closes the network stream and restores local rendering.
