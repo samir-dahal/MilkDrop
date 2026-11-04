@@ -39,8 +39,8 @@ android {
         applicationId = "com.milkdrop.visualizer"
         minSdk = 28
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.0.0"
+        versionCode = 4
+        versionName = "2.1.0"
         buildConfigField("String", "PROJECTM_VERSION", "\"$projectmVersion\"")
         buildConfigField("String", "PROJECTM_COMMIT", "\"$projectmCommit\"")
         buildConfigField("String", "CAST_RECEIVER_APP_ID", "\"$castReceiverAppId\"")

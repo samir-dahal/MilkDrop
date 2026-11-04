@@ -1,0 +1,185 @@
+name: Release
+
+# Runs only when a version tag is pushed (v2.1.0, or v2.1.0-rc.1 for a pre-release):
+#   git tag v2.1.0 && git push origin v2.1.0
+# Builds the APK and publishes it on the Releases page with the CHANGELOG notes and setup
+# instructions. See Docs/RELEASE_BUILD.md.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: read
+
+jobs:
+  # Cheap checks and the release notes come first, so a missing CHANGELOG entry fails in
+  # seconds instead of after the 30-minute build.
+  prepare:
+    name: Validate tag and write release notes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check tag matches app version
+        id: meta
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not a version like v1.2.3 or v1.2.3-rc.1"
+            exit 1
+          fi
+          APP_VERSION=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' app/build.gradle.kts)
+          if [ "$APP_VERSION" != "$VERSION" ]; then
+            echo "::error::Tag '$TAG' does not match versionName \"$APP_VERSION\" in app/build.gradle.kts. Bump it, commit, and tag again."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write release notes
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          # The CHANGELOG section for this version: everything under "## [VERSION]" up to the
+          # next "## [" heading. index() matches the version literally, dots included.
+          awk -v v="$VERSION" '
+            /^## \[/ { if (found) exit; if (index($0, "## [" v "]") == 1) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > changes.md
+
+          if ! grep -q '[^[:space:]]' changes.md; then
+            echo "::error::CHANGELOG.md has no entry for $VERSION. Add a '## [$VERSION] - YYYY-MM-DD' section, commit, and tag again."
+            exit 1
+          fi
+
+          {
+            cat changes.md
+            echo
+            sed -e "s|{{VERSION}}|$VERSION|g" \
+                -e "s|{{APK}}|MilkDrop-$VERSION.apk|g" \
+                -e "s|{{REPO}}|$REPO|g" \
+                .github/release-notes/install.md
+          } > release-notes.md
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
+
+  build:
+    name: Build MilkDrop
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      projectm_commit: ${{ steps.projectm.outputs.commit }}
+    env:
+      MILKDROP_CAST_RECEIVER_APP_ID: ${{ vars.MILKDROP_CAST_RECEIVER_APP_ID }}
+
+    steps:
+      - name: Check out source and submodules
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Update projectM to latest master
+        id: projectm
+        run: |
+          git submodule update --init --remote native/projectm
+          git -C native/projectm submodule update --init --recursive
+          git -C native/projectm log -1 --format='projectM commit: %H %s'
+          echo "commit=$(git -C native/projectm rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            **/*.gradle.kts
+            gradle.properties
+            gradle/wrapper/gradle-wrapper.properties
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android build tools
+        run: >-
+          sdkmanager "platforms;android-35" "build-tools;34.0.0"
+          "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Check custom Cast receiver
+        run: |
+          node --check cast-receiver/receiver.js
+          node --check cast-receiver/stream.js
+
+      - name: Build release APK
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Name release APK
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/MilkDrop-$VERSION.apk"
+
+      - name: Upload MilkDrop APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: MilkDrop-apk
+          path: app/build/outputs/apk/release/MilkDrop-${{ needs.prepare.outputs.version }}.apk
+          if-no-files-found: error
+
+  # The only job that can write to the repository, and it runs no project code.
+  release:
+    name: Publish GitHub release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+      PROJECTM_COMMIT: ${{ needs.build.outputs.projectm_commit }}
+    steps:
+      - name: Download APK and release notes
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        run: |
+          printf '\n---\n\nBuilt from commit `%s` with projectM commit `%s`.\n' \
+            "${GITHUB_SHA::12}" "${PROJECTM_COMMIT::12}" >> dist/release-notes.md
+
+          args=(--verify-tag --title "MilkDrop $VERSION" --notes-file dist/release-notes.md)
+          if [ "$PRERELEASE" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$TAG" "${args[@]}" "dist/MilkDrop-$VERSION.apk"
