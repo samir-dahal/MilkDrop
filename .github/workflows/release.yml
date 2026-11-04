@@ -27,6 +27,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v7
         with:
+          fetch-depth: 0 # full history and tags, to find the previous release
           persist-credentials: false
 
       - name: Check tag matches app version
@@ -51,6 +52,27 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Find contributors
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          # Everyone who authored a commit since the previous release tag, except the repo
+          # owner and bots, so outside contributors are credited on every release.
+          : > contributors.md
+          PREV=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+          if [ -n "$PREV" ]; then
+            LOGINS=$(gh api --paginate "repos/$REPO/compare/$PREV...$TAG" --jq '.commits[].author.login // empty' \
+              | sort -fu | awk -v owner="$OWNER" 'tolower($0) != tolower(owner) && $0 !~ /\[bot\]$/')
+            if [ -n "$LOGINS" ]; then
+              LINKS=$(echo "$LOGINS" | sed -E 's|.*|[&](https://github.com/&)|' | paste -sd, - | sed 's/,/, /g')
+              printf '### Contributors\n\nThank you to %s for the changes in this release.\n' "$LINKS" > contributors.md
+            fi
+          fi
+          cat contributors.md
+
       - name: Write release notes
         env:
           VERSION: ${{ steps.meta.outputs.version }}
@@ -71,6 +93,10 @@ jobs:
           {
             cat changes.md
             echo
+            if [ -s contributors.md ]; then
+              cat contributors.md
+              echo
+            fi
             sed -e "s|{{VERSION}}|$VERSION|g" \
                 -e "s|{{APK}}|MilkDrop-$VERSION.apk|g" \
                 -e "s|{{REPO}}|$REPO|g" \

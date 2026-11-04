@@ -8,6 +8,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 Includes everything from 2.0.0 below, which was never released on its own.
 
+Most of this release was contributed by [OfficialIncubo](https://github.com/OfficialIncubo)
+in [#3](https://github.com/samir-dahal/MilkDrop/pull/3). Thank you!
+
 ### Added
 
 - Extend equation and warp/composite shader q variables to q1–q64, with packed

@@ -334,6 +334,16 @@ Include the log, phone model, Android version, and selected audio source when re
 Since CI fetches upstream `master` on every run, include the projectM commit shown in the CI log
 as well. This helps distinguish a native startup failure from an audio or preset loading issue.
 
+## Credits
+
+- [OfficialIncubo](https://github.com/OfficialIncubo) — contributed most of what came after 1.1.0
+  ([#3](https://github.com/samir-dahal/MilkDrop/pull/3)): BeatDrop-compatible audio analysis and
+  rendering, many shader and preset compatibility fixes, visual casting (Google Cast, MilkDrop
+  Live and Miracast), Android TV and remote support, touch swipe shortcuts, adaptive quality and
+  the extra settings, and the GitHub Actions build.
+- [projectM](https://github.com/projectM-visualizer/projectm) — the visualizer engine this app is
+  built on.
+
 ## Licensing note
 
 `libprojectM` and `projectm-playlist` are LGPL-2.1; this app links them as dynamically-loaded
