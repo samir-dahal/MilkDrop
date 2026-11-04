@@ -3,8 +3,12 @@ package com.milkdrop.visualizer.render
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import android.util.Log
+import com.milkdrop.visualizer.cast.VisualOutput
+import com.milkdrop.visualizer.settings.AudioTuning
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.roundToInt
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -28,7 +32,7 @@ class MilkDropRenderer(
     sealed interface Navigation {
         data object Next : Navigation
         data object Previous : Navigation
-        data class JumpTo(val position: Int) : Navigation
+        data class JumpTo(val path: String) : Navigation
     }
 
     data class MeshSize(val columns: Int, val rows: Int) {
@@ -38,6 +42,12 @@ class MilkDropRenderer(
         }
     }
 
+    private val pendingCountdownRestart = AtomicBoolean(false)
+
+    @Volatile var visualOutput: VisualOutput? = null
+    private var viewportWidth = 0
+    private var viewportHeight = 0
+
     @Volatile
     var handle: Long = 0L
         private set
@@ -45,9 +55,15 @@ class MilkDropRenderer(
     @Volatile
     var shuffleEnabled: Boolean = true
 
-    /** When false, projectM's own preset-duration timer is locked so it stops switching presets. */
+    /** Disabled holds the switching countdown at zero; changing it restarts the countdown. */
     @Volatile
     var autoAdvanceEnabled: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                pendingCountdownRestart.set(true)
+            }
+        }
 
     /**
      * Hard cuts instead of blended transitions, for both manual navigation and projectM's own
@@ -66,19 +82,79 @@ class MilkDropRenderer(
     /** How long auto-advance shows each preset. */
     @Volatile
     var presetDurationSeconds: Double = 15.0
+        set(value) {
+            if (field != value) {
+                field = value
+                pendingCountdownRestart.set(true)
+            }
+        }
+
+    @Volatile
+    var additionalRandomSeconds: Double = 0.0
+        set(value) {
+            if (field != value) {
+                field = value
+                pendingCountdownRestart.set(true)
+            }
+        }
+
+    @Volatile
+    var transitionSeconds: Double = 1.7
 
     /** Also switch preset (hard cut) on a sudden jump in loudness, once a preset has shown a while. */
     @Volatile
     var beatCutsEnabled: Boolean = false
+
+    /** Full-screen coordinates for geometry and equations; shader aspect stays physical. */
+    @Volatile
+    var screenDependentRendering: Boolean = false
+
+    @Volatile
+    var audioSensitivity: Float = AudioTuning.SENSITIVITY_DEFAULT
+
+    @Volatile
+    var fftShaderScaling: Float = AudioTuning.FFT_SCALING_DEFAULT
+
+    @Volatile
+    var fftShaderNoiseFloor: Float = AudioTuning.FFT_NOISE_FLOOR_DEFAULT
+
+    private data class PointerState(val x: Float = -1.0f, val y: Float = -1.0f,
+        val down: Boolean = false, val pressed: Boolean = false)
+    private val pointer = AtomicReference(PointerState())
+
+    /** Positions cover the whole visualization, including touches delivered to overlay controls. */
+    fun updatePointer(x: Float, y: Float, down: Boolean, pressed: Boolean = false) {
+        pointer.updateAndGet { previous -> PointerState(x, y, down, previous.pressed || pressed || (down && !previous.down)) }
+    }
+
+    fun clearPointer() {
+        pointer.set(PointerState())
+    }
+
+    private fun applyPointer() {
+        val state = pointer.getAndUpdate { if (it.pressed) it.copy(pressed = false) else it }
+        ProjectMBridge.nativeSetPointer(handle, state.x, state.y, state.down, state.pressed)
+    }
 
     private var appliedShuffle: Boolean? = null
     private var appliedAutoAdvance: Boolean? = null
     private var appliedInstantTransitions: Boolean? = null
     private var appliedMeshSize: MeshSize? = null
     private var appliedPresetDuration: Double? = null
+    private var appliedRandomDuration: Double? = null
+    private var appliedTransitionSeconds: Double? = null
     private var appliedBeatCuts: Boolean? = null
+    private var appliedScreenDependentRendering: Boolean? = null
+    private var appliedFftScaling: Float? = null
+    private var appliedFftNoiseFloor: Float? = null
 
     private val pendingNavigation = AtomicReference<Navigation?>(null)
+    private val pendingTextureRefresh = AtomicBoolean(false)
+
+    /** Apply on the GL thread before loading presets after storage setup or permission changes. */
+    fun refreshTextureSearchPaths() {
+        pendingTextureRefresh.set(true)
+    }
 
     /**
      * Preset to resume on when a playlist is first built, e.g. the one showing at last exit. Kept
@@ -95,6 +171,10 @@ class MilkDropRenderer(
     @Volatile
     var onPresetsReady: (() -> Unit)? = null
 
+    /** Called when native libraries or the device's graphics context cannot initialize projectM. */
+    @Volatile
+    var onInitializationFailed: (() -> Unit)? = null
+
     /** Latest list handed over by [loadScannedPresets]; applied on the GL thread when it changes. */
     @Volatile
     private var presetPaths: List<String> = emptyList()
@@ -106,10 +186,20 @@ class MilkDropRenderer(
     @Volatile
     private var loadedPaths: List<String>? = null
 
-    private var lastReportedPosition = -1
+    private var lastReportedPath: String? = null
 
     private val frameRateMeter = FrameRateMeter()
     private var reportedFps = 0
+    @Volatile private var frameRateReading: Pair<Double, Long>? = null
+
+    /** Receives one measured-FPS sample at a time; listeners must move UI work to the main thread. */
+    @Volatile
+    var onFrameRateMeasured: ((fps: Int) -> Unit)? = null
+
+    /** Measured render FPS, rather than the configured cap; stale readings show a stopped renderer. */
+    fun currentFramesPerSecond(): Double? = frameRateReading?.let { (fps, sampledAt) ->
+        if (System.nanoTime() - sampledAt > 1_500_000_000L) 0.0 else fps
+    }
 
     /** Guards [handle] against being destroyed while the audio thread is mid-[feedPcm]. */
     private val pcmLock = Any()
@@ -119,7 +209,17 @@ class MilkDropRenderer(
         // instance owned is gone, so rebuild projectM from scratch rather than rendering garbage.
         release()
 
-        handle = ProjectMBridge.nativeCreate()
+        handle = try {
+            ProjectMBridge.nativeCreate()
+        } catch (e: LinkageError) {
+            Log.e(TAG, "Unable to load projectM native libraries", e)
+            0L
+        }
+        if (handle == 0L) {
+            Log.e(TAG, "Unable to initialize projectM")
+            onInitializationFailed?.invoke()
+            return
+        }
         GpuDriverThreads.pinToFastCores()
         performanceHints.onRenderThreadStarted()
         ProjectMBridge.nativeSetTextureSearchPaths(handle, arrayOf(texturesDir.absolutePath))
@@ -131,13 +231,19 @@ class MilkDropRenderer(
         appliedInstantTransitions = null
         appliedMeshSize = null
         appliedPresetDuration = null
+        appliedRandomDuration = null
+        appliedTransitionSeconds = null
         appliedBeatCuts = null
+        appliedScreenDependentRendering = null
+        appliedFftScaling = null
+        appliedFftNoiseFloor = null
         // Until a preset list is handed over (see loadScannedPresets), projectM just shows its
         // built-in idle preset.
         loadedPaths = null
-        lastReportedPosition = -1
+        lastReportedPath = null
         frameRateMeter.reset()
         reportedFps = 0
+        applyPointer()
         applyPendingState()
     }
 
@@ -154,15 +260,19 @@ class MilkDropRenderer(
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        ProjectMBridge.nativeSetWindowSize(handle, width, height)
+        viewportWidth = width; viewportHeight = height
+        if (handle != 0L) ProjectMBridge.nativeSetWindowSize(handle, width, height)
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        if (handle == 0L) return
         val frameStartNanos = System.nanoTime()
         performanceHints.onFrameStart(frameStartNanos)
+        applyPointer()
         applyPendingState()
         reportFrameRate(frameStartNanos)
         ProjectMBridge.nativeRenderFrame(handle)
+        visualOutput?.draw(viewportWidth, viewportHeight)
         reportPresetChange()
         performanceHints.onFrameEnd(System.nanoTime())
     }
@@ -172,7 +282,11 @@ class MilkDropRenderer(
      * (35), and those that scale motion by `fps` ran too fast at higher frame rates.
      */
     private fun reportFrameRate(nowNanos: Long) {
-        val fps = frameRateMeter.onFrame(nowNanos) ?: return
+        val measuredFps = frameRateMeter.onFrame(nowNanos) ?: return
+        frameRateReading = measuredFps to nowNanos
+        // Preserve the existing integer engine/adaptation inputs; the UI keeps full precision.
+        val fps = measuredFps.roundToInt()
+        onFrameRateMeasured?.invoke(fps)
         if (fps != reportedFps && handle != 0L) {
             ProjectMBridge.nativeSetFps(handle, fps)
             reportedFps = fps
@@ -181,20 +295,34 @@ class MilkDropRenderer(
 
     /** Covers auto-advance too, which projectM does internally without going through [navigate]. */
     private fun reportPresetChange() {
-        val paths = loadedPaths ?: return
-        val position = ProjectMBridge.nativeGetPlaylistPosition(handle)
-        if (position != lastReportedPosition) {
-            lastReportedPosition = position
-            paths.getOrNull(position)?.let { path ->
-                startPresetPath = path
-                onPresetChanged?.invoke(path)
-            }
+        if (loadedPaths == null) return
+        val path = ProjectMBridge.nativeGetCurrentPresetPath(handle) ?: return
+        if (path != lastReportedPath) {
+            lastReportedPath = path
+            startPresetPath = path
+            onPresetChanged?.invoke(path)
         }
     }
 
     private fun applyPendingState() {
         val currentHandle = handle
         if (currentHandle == 0L) return
+
+        // Keep a restart even if controls were changed and changed back while a heavy
+        // preset blocked rendering. The final desired values still apply only once.
+        if (pendingCountdownRestart.getAndSet(false)) appliedPresetDuration = null
+
+        if (pendingTextureRefresh.getAndSet(false)) {
+            ProjectMBridge.nativeSetTextureSearchPaths(currentHandle, arrayOf(texturesDir.absolutePath))
+        }
+
+        val scaling = fftShaderScaling
+        val noiseFloor = fftShaderNoiseFloor
+        if (scaling != appliedFftScaling || noiseFloor != appliedFftNoiseFloor) {
+            ProjectMBridge.nativeSetShaderAudioSettings(currentHandle, scaling, noiseFloor)
+            appliedFftScaling = scaling
+            appliedFftNoiseFloor = noiseFloor
+        }
 
         val shuffle = shuffleEnabled
         if (shuffle != appliedShuffle) {
@@ -209,9 +337,17 @@ class MilkDropRenderer(
         }
 
         val instant = instantTransitions
-        if (instant != appliedInstantTransitions) {
-            ProjectMBridge.nativeSetSoftCutDuration(currentHandle, if (instant) 0.0 else SOFT_CUT_DURATION_SECONDS)
+        val transition = transitionSeconds
+        if (instant != appliedInstantTransitions || transition != appliedTransitionSeconds) {
+            ProjectMBridge.nativeSetSoftCutDuration(currentHandle, if (instant) 0.0 else transition)
             appliedInstantTransitions = instant
+            appliedTransitionSeconds = transition
+        }
+
+        val screenDependent = screenDependentRendering
+        if (screenDependent != appliedScreenDependentRendering) {
+            ProjectMBridge.nativeSetScreenDependentRendering(currentHandle, screenDependent)
+            appliedScreenDependentRendering = screenDependent
         }
 
         val mesh = meshSize
@@ -221,6 +357,11 @@ class MilkDropRenderer(
         }
 
         val duration = presetDurationSeconds
+        val randomDuration = additionalRandomSeconds
+        if (randomDuration != appliedRandomDuration) {
+            ProjectMBridge.nativeSetAdditionalRandomTime(currentHandle, randomDuration)
+            appliedRandomDuration = randomDuration
+        }
         if (duration != appliedPresetDuration) {
             ProjectMBridge.nativeSetPresetDuration(currentHandle, duration)
             appliedPresetDuration = duration
@@ -237,9 +378,13 @@ class MilkDropRenderer(
         val paths = presetPaths
         if (paths.isNotEmpty() && paths !== loadedPaths) {
             loadPlaylist(currentHandle, paths)
+        } else if (paths.isEmpty() && loadedPaths?.isNotEmpty() == true) {
+            ProjectMBridge.nativeClearPresets(currentHandle)
+            loadedPaths = paths
+            lastReportedPath = null
         }
 
-        if (loadedPaths != null) {
+        if (loadedPaths?.isNotEmpty() == true) {
             pendingNavigation.getAndSet(null)?.let { navigate(currentHandle, it) }
         }
     }
@@ -252,12 +397,12 @@ class MilkDropRenderer(
         // search per insert: O(n²) string compares on the GL thread, seconds for ~15k presets.
         ProjectMBridge.nativeAddPresets(currentHandle, paths.toTypedArray(), true)
         loadedPaths = paths
-        lastReportedPosition = -1
+        lastReportedPath = null
 
         // Resuming reloads the preset even when it's the one already showing (after a rescan found
         // changes); the playlist API has no way to re-point its position without loading.
-        val resumeIndex = startPresetPath?.let { paths.indexOf(it) } ?: -1
-        navigate(currentHandle, if (resumeIndex >= 0) Navigation.JumpTo(resumeIndex) else Navigation.Next)
+        val resumePath = startPresetPath?.takeIf { it in paths }
+        navigate(currentHandle, if (resumePath != null) Navigation.JumpTo(resumePath) else Navigation.Next)
         onPresetsReady?.invoke()
     }
 
@@ -267,22 +412,27 @@ class MilkDropRenderer(
         val position = when (navigation) {
             Navigation.Next -> ProjectMBridge.nativePlayNext(currentHandle, hardCut)
             Navigation.Previous -> ProjectMBridge.nativePlayLast(currentHandle, hardCut)
-            is Navigation.JumpTo -> ProjectMBridge.nativeSetPlaylistPosition(currentHandle, navigation.position, hardCut)
+            is Navigation.JumpTo -> {
+                if (navigation.path !in loadedPaths.orEmpty()) return
+                ProjectMBridge.nativePlayPresetPath(currentHandle, navigation.path, hardCut)
+            }
         }
         Log.d(TAG, "$navigation -> #$position loaded in ${SystemClock.elapsedRealtime() - startMs} ms")
     }
 
-    fun feedPcm(samples: ShortArray, frameCount: Int, channels: Int) {
+    fun feedPcm(samples: ShortArray, frameCount: Int, channels: Int, sampleRateHz: Int, snapshot: Boolean) {
         synchronized(pcmLock) {
             val currentHandle = handle
             if (currentHandle != 0L) {
-                ProjectMBridge.nativeFeedPcmInt16(currentHandle, samples, frameCount, channels)
+                ProjectMBridge.nativeFeedPcmInt16(currentHandle, samples, frameCount, channels,
+                    sampleRateHz, snapshot, audioSensitivity)
             }
         }
     }
 
     /** Must run on the GL thread. */
     fun release() {
+        frameRateReading = null
         performanceHints.release()
         val currentHandle = handle
         if (currentHandle != 0L) {
@@ -295,6 +445,5 @@ class MilkDropRenderer(
     private companion object {
         const val TAG = "MilkDropRenderer"
         const val BEAT_CUT_MIN_SECONDS = 5.0
-        const val SOFT_CUT_DURATION_SECONDS = 1.0
     }
 }

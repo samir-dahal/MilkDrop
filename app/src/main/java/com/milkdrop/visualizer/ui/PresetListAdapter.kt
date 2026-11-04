@@ -48,14 +48,15 @@ class PresetListAdapter(
         holder.name.text = file.nameWithoutExtension
         holder.folder.text = file.parentFile?.name.orEmpty()
         holder.text.alpha = if (hidden) HIDDEN_ALPHA else 1f
-        holder.itemView.setBackgroundColor(if (entry.path == currentPath) HIGHLIGHT_COLOR else 0)
+        holder.itemView.isActivated = entry.path == currentPath
         holder.itemView.setOnClickListener { if (entry.playlistIndex != null) onPresetClick(entry) }
 
         holder.favourite.isActivated = favourite
         ViewCompat.setStateDescription(holder.favourite, context.getString(if (favourite) R.string.state_on else R.string.state_off))
         holder.favourite.setOnClickListener {
             onFavouriteToggled(entry)
-            notifyItemChanged(holder.bindingAdapterPosition)
+            val currentPosition = holder.bindingAdapterPosition
+            if (currentPosition != RecyclerView.NO_POSITION) notifyItemChanged(currentPosition)
         }
 
         holder.hide.isActivated = hidden
@@ -74,7 +75,6 @@ class PresetListAdapter(
     }
 
     private companion object {
-        const val HIGHLIGHT_COLOR = 0x552196F3
         const val HIDDEN_ALPHA = 0.4f
     }
 }

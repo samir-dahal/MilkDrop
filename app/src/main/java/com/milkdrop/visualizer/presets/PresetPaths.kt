@@ -10,24 +10,23 @@ import java.io.File
  */
 object PresetPaths {
 
-    private val rootDir: File
-        get() = File(Environment.getExternalStorageDirectory(), "MilkDropApp")
+    private val library: PresetLibrary
+        get() = PresetLibrary(File(Environment.getExternalStorageDirectory(), "MilkDropApp"))
 
     val presetsDir: File
-        get() = File(rootDir, "presets")
+        get() = library.presetsDir
 
     val texturesDir: File
-        get() = File(rootDir, "textures")
+        get() = library.texturesDir
 
     val favouritesFile: File
-        get() = File(rootDir, "favourites.txt")
+        get() = library.favouritesFile
 
     val hiddenFile: File
-        get() = File(rootDir, "hidden.txt")
+        get() = library.hiddenFile
 
     fun ensureDirsExist() {
-        presetsDir.mkdirs()
-        texturesDir.mkdirs()
+        library.ensureDirsExist()
     }
 
     /**
@@ -38,23 +37,6 @@ object PresetPaths {
      * the Galaxy F15. Names ending in `.milk` are taken as presets from the directory listing
      * alone; only other names are probed, by trying to list them as directories.
      */
-    fun scanPresets(): List<String> {
-        val presets = ArrayList<String>()
-        collectPresets(presetsDir, presets)
-        return presets
-    }
-
-    private fun collectPresets(dir: File, into: MutableList<String>) {
-        val names = dir.list() ?: return
-        for (name in names) {
-            val child = File(dir, name)
-            if (name.endsWith(PRESET_EXTENSION, ignoreCase = true)) {
-                into += child.absolutePath
-            } else {
-                collectPresets(child, into)
-            }
-        }
-    }
-
-    private const val PRESET_EXTENSION = ".milk"
+    fun scanPresets(onFirstPreset: (String) -> Unit = {}): List<String> =
+        library.scanPresets(onFirstPreset)
 }

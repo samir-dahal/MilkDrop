@@ -30,27 +30,15 @@ input on top of it as-is.
   via JNI. Target continuous rendering (RENDERMODE_CONTINUOUSLY).
 - Handle GL context creation/destruction lifecycle correctly on surface changed/destroyed.
 
-=== 3. AUDIO CAPTURE (internal playback, not mic) ===
-- Implement Android's AudioPlaybackCapture API (API 29+):
-  - Request RECORD_AUDIO permission at runtime.
-  - Trigger MediaProjectionManager.createScreenCaptureIntent() to get user consent
-    (system dialog) — needed because AudioPlaybackCapture piggybacks on MediaProjection.
-  - Build AudioPlaybackCaptureConfiguration matching AudioAttributes.USAGE_MEDIA and
-    USAGE_GAME (add more usages if needed) via addMatchingUsage().
-  - Build an AudioRecord with this configuration, start reading PCM buffers continuously
-    on a dedicated thread.
-  - Run capture inside a foreground service (type: mediaProjection) so it survives the
-    visualizer being backgrounded briefly and satisfies Android's foreground-service
-    requirements for MediaProjection-based capture on modern Android versions.
-  - Feed captured PCM buffers into projectM via the JNI bridge from step 1, at whatever
-    sample rate/format projectM expects (resample if necessary).
-- Known limitation to build around: some apps (e.g. Spotify) set their own audio capture
-  policy to block third-party capture — this is expected and not a bug. Design the audio
-  source as swappable: internal playback capture as primary source, with a fallback mode
-  that captures from the microphone instead (for blocked apps or ambient audio), toggleable
-  in-app.
-- No need to handle capture consent gracefully for a Play-store audience — a simple
-  "grant on launch, restart if revoked" flow is fine.
+=== 3. AUDIO INPUT ===
+- Offer Mic input through AudioRecord and Internal playback input through Android's
+  Visualizer output-mix session. Both feed PCM data to projectM via the JNI bridge.
+- Request RECORD_AUDIO at runtime for Mic and Internal input. Handle devices that deny
+  access to the output mix by falling back to Mic.
+- Support Android 9 (API 28) and newer. Request legacy external-storage permissions on
+  Android versions before scoped storage so presets remain accessible.
+- Some apps block output-mix capture; this is an Android platform limitation. Mic remains
+  available for those apps and for ambient audio.
 
 === 4. PRESET MANAGEMENT (lazy load from external storage) ===
 - Do NOT bundle preset packs in assets/. Instead:
@@ -81,12 +69,12 @@ input on top of it as-is.
 
 === 6. PERMISSIONS / MANIFEST ===
 - RECORD_AUDIO
-- FOREGROUND_SERVICE and FOREGROUND_SERVICE_MEDIA_PROJECTION
+- MODIFY_AUDIO_SETTINGS for the Visualizer output-mix source
 - MANAGE_EXTERNAL_STORAGE (or READ/WRITE_EXTERNAL_STORAGE with legacy storage flag if
   targeting a lower API is simpler) — since this is sideloaded and personal, prioritize
   simplicity over scoped-storage best practice.
-- Request android:allowAudioPlaybackCapture in the manifest for this app itself if relevant.
-- Target a recent SDK for AudioPlaybackCapture support, min SDK 29.
+- Support Android 9 (API 28) and newer; request READ/WRITE_EXTERNAL_STORAGE at runtime
+  before Android 11, and MANAGE_EXTERNAL_STORAGE on Android 11 and newer.
 
 === 7. BUILD/OUTPUT ===
 - Standard Gradle project, debug-signed APK is fine (no release signing needed).
@@ -95,6 +83,7 @@ input on top of it as-is.
 - Make sure it actually builds and installs via `./gradlew installDebug` or equivalent —
   verify the build, don't just write code and assume it compiles.
 
-DELIVERABLE: A working APK I can sideload, that opens fullscreen, captures whatever audio
-is playing on the phone (YouTube etc.), and renders MilkDrop presets loaded from a folder I
-control on external storage, with basic next/prev/random/auto-advance controls.
+DELIVERABLE: A working APK I can sideload, that opens fullscreen, captures device playback
+where Android permits output-mix access (with Mic as a fallback), and renders MilkDrop
+presets loaded from a folder I control on external storage, with basic next/prev/random/
+auto-advance controls.

@@ -1,7 +1,5 @@
 package com.milkdrop.visualizer.render
 
-import kotlin.math.roundToInt
-
 /**
  * Measures the frame rate actually rendered, averaged over about a second.
  *
@@ -16,7 +14,7 @@ class FrameRateMeter {
     private var framesInWindow = 0
 
     /** Call once per rendered frame; returns the new average when a window completes, else null. */
-    fun onFrame(nowNanos: Long): Int? {
+    fun onFrame(nowNanos: Long): Double? {
         if (lastFrameNanos == 0L || nowNanos - lastFrameNanos > MAX_FRAME_GAP_NANOS) {
             restart(nowNanos)
             return null
@@ -26,7 +24,7 @@ class FrameRateMeter {
         val elapsed = nowNanos - windowStartNanos
         if (elapsed < WINDOW_NANOS) return null
 
-        val fps = (framesInWindow * 1_000_000_000.0 / elapsed).roundToInt()
+        val fps = framesInWindow * 1_000_000_000.0 / elapsed
         windowStartNanos = nowNanos
         framesInWindow = 0
         return fps

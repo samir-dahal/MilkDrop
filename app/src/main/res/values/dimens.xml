@@ -1,0 +1,7 @@
+<resources>
+    <dimen name="control_text_size">12sp</dimen>
+    <dimen name="control_min_height">56dp</dimen>
+    <dimen name="setting_label_size">14sp</dimen>
+    <dimen name="segment_text_size">14sp</dimen>
+    <dimen name="segment_height">40dp</dimen>
+</resources>

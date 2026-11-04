@@ -1,9 +1,10 @@
 package com.milkdrop.visualizer.audio
 
-/** Interleaved PCM16 frames captured off the audio thread: (samples, frameCount, channelCount). */
-typealias PcmSink = (samples: ShortArray, frameCount: Int, channels: Int) -> Unit
+/** PCM16 data and its real sample rate; snapshots may overlap, streaming blocks do not. */
+typealias PcmSink = (samples: ShortArray, frameCount: Int, channels: Int, sampleRateHz: Int, snapshot: Boolean) -> Unit
 
 interface AudioSource {
+    val isRunning: Boolean
     fun start()
     fun stop()
 }

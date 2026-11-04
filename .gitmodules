@@ -1,3 +1,4 @@
 [submodule "native/projectm"]
 	path = native/projectm
 	url = https://github.com/projectM-visualizer/projectm.git
+	branch = master

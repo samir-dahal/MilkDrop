@@ -4,7 +4,7 @@ project(milkdropjni)
 # Build libprojectM (and projectm-playlist, same repo) from source as a
 # dynamically-linked shared library, per the project requirements — this
 # keeps LGPL-2.1 compliance simple and keeps presets/API in sync with the
-# vendored submodule tag rather than a prebuilt CI artifact.
+# vendored submodule source rather than a prebuilt CI artifact.
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(ENABLE_PLAYLIST ON CACHE BOOL "" FORCE)
 set(ENABLE_SDL_UI OFF CACHE BOOL "" FORCE)
@@ -18,8 +18,8 @@ get_filename_component(PROJECTM_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../
 # project() sets — i.e. this wrapper, not projectM — so a fresh configure left them empty and
 # ProjectMCWrapper.cpp failed to compile. Mirror the submodule's own declared version instead.
 file(READ ${PROJECTM_SOURCE_DIR}/CMakeLists.txt PROJECTM_CMAKE_CONTENT)
-string(REGEX MATCH "project\\(libprojectM[^)]*VERSION ([0-9]+)\\.([0-9]+)\\.([0-9]+)" _ "${PROJECTM_CMAKE_CONTENT}")
-if(NOT CMAKE_MATCH_3)
+string(REGEX MATCH "project\\(libprojectM[^)]*VERSION ([0-9]+)\\.([0-9]+)\\.([0-9]+)" PROJECTM_VERSION_DECLARATION "${PROJECTM_CMAKE_CONTENT}")
+if(NOT PROJECTM_VERSION_DECLARATION)
     message(FATAL_ERROR "Couldn't read libprojectM's version from its CMakeLists.txt.")
 endif()
 set(CMAKE_PROJECT_VERSION "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
@@ -110,6 +110,11 @@ function(mirror_projectm_dir TARGET DIR_REL)
     target_include_directories(${TARGET} BEFORE PUBLIC ${DST_DIR})
 endfunction()
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/BeatAnalysis.cmake)
+
+# Mirror renderer headers before extending texture/sampler layouts.
+mirror_projectm_dir(Renderer src/libprojectM/Renderer)
+
 # hlslparser's headers get patched below, and MilkdropShader.cpp includes them too (through the
 # PUBLIC include dir this prepends), so every user sees the same class layout.
 mirror_projectm_dir(hlslparser vendor/hlslparser/src)
@@ -119,12 +124,13 @@ mirror_projectm_dir(hlslparser vendor/hlslparser/src)
 #   constructing a *named* locale re-initialises all its facets (time_get format analysis, getenv,
 #   allocations), which profiled at a large share of each preset switch's GL-thread stall.
 #   std::locale::classic() is the same "C" locale as a shared static instance.
-# - It reports parse errors (line and reason) with vprintf, which goes nowhere on Android; send
-#   them to logcat instead.
+# - Its parser error logging hook is disabled upstream; send the formatted line and reason to
+#   logcat instead.
 patch_projectm_source(hlslparser vendor/hlslparser/src/Engine.cpp
     "std::locale(\"C\")" "std::locale::classic()"
     "void Log_ErrorArgList(" "#include <android/log.h>\nvoid Log_ErrorArgList("
-    "vprintf( format, args );" "__android_log_vprint(ANDROID_LOG_WARN, \"MilkDropShader\", format, args);"
+    "//LOG_ERROR(\"[HLSLParser] \" + std::string(buffer.data()));"
+    "__android_log_print(ANDROID_LOG_WARN, \"MilkDropShader\", \"%s\", buffer.data());"
 )
 # Its errors only give a line number in projectM's internally rewritten source; add the source text
 # at the error so the failing construct can be read straight from logcat.
@@ -156,18 +162,18 @@ patch_projectm_source(hlslparser vendor/hlslparser/src/HLSLParser.cpp
         INTRINSIC_FLOAT1_FUNCTION( "tanh" ),
         INTRINSIC_FLOAT1_FUNCTION( "sinh" ),
         INTRINSIC_FLOAT1_FUNCTION( "cosh" ),]=]
-    [=[                sourcePreprocessed.append("(");
-                sourcePreprocessed.append(m_macros[i]->value);
-                sourcePreprocessed.append(")");]=]
-    [=[                const char* value = m_macros[i]->value;
-                bool isPlainName = isalpha(value[0]) || value[0] == '_';
-                for (const char* c = value; *c != 0 && isPlainName; ++c)
-                {
-                    isPlainName = isalnum(*c) || *c == '_' || *c == '.';
-                }
-                sourcePreprocessed.append(isPlainName ? " " : "(");
-                sourcePreprocessed.append(value);
-                sourcePreprocessed.append(isPlainName ? " " : ")");]=]
+    [=[                    sourcePreprocessed.append("(");
+                    sourcePreprocessed.append(m_macros[i]->value);
+                    sourcePreprocessed.append(")");]=]
+    [=[                    const char* value = m_macros[i]->value;
+                    bool isPlainName = isalpha(value[0]) || value[0] == '_';
+                    for (const char* c = value; *c != 0 && isPlainName; ++c)
+                    {
+                        isPlainName = isalnum(*c) || *c == '_' || *c == '.';
+                    }
+                    sourcePreprocessed.append(isPlainName ? " " : "(");
+                    sourcePreprocessed.append(value);
+                    sourcePreprocessed.append(isPlainName ? " " : ")");]=]
     [=[        DeclareVariable( declaration2->name, declaration2->type );
 
         // Handle option assignment of the declared variables(s).
@@ -264,26 +270,29 @@ patch_projectm_source(MilkdropPreset src/libprojectM/MilkdropPreset/Constants.hp
 )
 
 # projectM silently falls back to a default shader (or none) when a preset's warp/composite shader
-# fails to translate or compile; the reason is only printed in MILKDROP_PRESET_DEBUG builds, to
-# stderr. Log it to logcat, without the full shader source projectM appends to translation errors.
+# fails to translate or compile. Forward these errors directly to logcat even without an
+# application logging callback, omitting any full shader source appended to the message.
 set(SHADER_ERROR_LOG [=[__android_log_print(ANDROID_LOG_WARN, "MilkDropShader", "%s shader: %s", STAGE, ex.message().substr(0, ex.message().find("\nSource:")).c_str())]=])
-set(SHADER_STAGES composite warp)
-set(SHADER_STAGE_FILES FinalComposite PerPixelMesh)
-foreach(STAGE FILE_NAME IN ZIP_LISTS SHADER_STAGES SHADER_STAGE_FILES)
-    string(REPLACE "STAGE" "\"${STAGE}\"" STAGE_LOG "${SHADER_ERROR_LOG}")
-    patch_projectm_source(MilkdropPreset src/libprojectM/MilkdropPreset/${FILE_NAME}.cpp
-        "#include \"${FILE_NAME}.hpp\"" "#include \"${FILE_NAME}.hpp\"\n#include <android/log.h>"
-        "(void)ex; // silence unused parameter warning" "${STAGE_LOG};"
-    )
-endforeach()
+string(REPLACE "STAGE" "\"composite\"" COMPOSITE_LOG "${SHADER_ERROR_LOG}")
+patch_projectm_source(MilkdropPreset src/libprojectM/MilkdropPreset/FinalComposite.cpp
+    "#include \"FinalComposite.hpp\"" "#include \"FinalComposite.hpp\"\n#include <android/log.h>"
+    [=[LOG_WARN("[FinalComposite] Error loading composite warp shader code: " + ex.message() + " - Using fallback shader.");]=]
+    "${COMPOSITE_LOG};"
+    [=[LOG_WARN("[FinalComposite] Error compiling composite warp shader code - Using fallback shader.");]=]
+    "${COMPOSITE_LOG};"
+)
+string(REPLACE "STAGE" "\"warp\"" WARP_LOG "${SHADER_ERROR_LOG}")
+patch_projectm_source(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.cpp
+    "#include \"PerPixelMesh.hpp\"" "#include \"PerPixelMesh.hpp\"\n#include <android/log.h>"
+    [=[LOG_ERROR("[PerPixelMesh] Error loading warp shader code:" + ex.message());]=]
+    "${WARP_LOG};"
+    "catch (Renderer::ShaderException&)" "catch (Renderer::ShaderException& ex)"
+    [=[LOG_ERROR("[PerPixelMesh] Error compiling warp shader code.");]=]
+    "${WARP_LOG};"
+)
 
-# MilkDrop 3 additions to preset shaders (one call: each call re-reads the original file):
-# - get_fft(pos) and get_fft_hz(freq): the spectrum level (0-1) at a position along 0-22 kHz, or at
-#   a frequency. projectM has no such input, so presets using them (MD3's equalizers) failed to
-#   compile. Our own implementation: the spectrum, reduced to 128 levels with a quick fall-off, is
-#   uploaded each frame as a uniform array, and the functions read it.
-# - Samplers declared by the texture's plain name ("sampler MilkDrop3_001;"). projectM only binds
-#   names starting with "sampler_", so these are renamed to that form before anything else.
+# Samplers declared by plain names, individually or in comma-separated lists, need the
+# "sampler_" prefix expected by projectM's texture loader.
 patch_projectm_source(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader.cpp
     [=[using libprojectM::MilkdropPreset::MilkdropStaticShaders;]=]
     [=[using libprojectM::MilkdropPreset::MilkdropStaticShaders;
@@ -292,15 +301,25 @@ patch_projectm_source(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShad
 // the "sampler_" form projectM binds textures to.
 static void PrefixPlainSamplerNames(std::string& program)
 {
-    static const std::regex plainSamplerDeclaration(R"(\bsampler(?:2D|3D)?\s+([A-Za-z_]\w*)\s*;)");
+    static const std::regex plainSamplerDeclaration(R"(\bsampler(?:2D|3D)?\s+((?:[A-Za-z_]\w*\s*,\s*)*[A-Za-z_]\w*)\s*;)");
+    static const std::regex identifier(R"([A-Za-z_]\w*)");
+    const std::string stripped = Utils::StripComments(program);
     std::set<std::string> plainNames;
-    for (std::sregex_iterator it(program.begin(), program.end(), plainSamplerDeclaration), end; it != end; ++it)
+    for (std::sregex_iterator it(stripped.begin(), stripped.end(), plainSamplerDeclaration), end; it != end; ++it)
     {
-        std::string const name = (*it)[1];
-        if (Utils::ToLower(name).rfind("sampler_", 0) != 0)
+        const std::string names = (*it)[1];
+        for (std::sregex_iterator nameIt(names.begin(), names.end(), identifier), nameEnd; nameIt != nameEnd; ++nameIt)
         {
-            plainNames.insert(name);
+            const std::string name = nameIt->str();
+            if (Utils::ToLower(name).rfind("sampler_", 0) != 0) plainNames.insert(name);
         }
+    }
+    // MilkDrop also accepts a bare random sampler directly in texture calls,
+    // including when only its sampler_randXX alias was declared.
+    static const std::regex bareRandomSampler(R"(\btex(?:1D|2D|3D|CUBE)(?:lod|bias|grad)?\s*\(\s*((?:(?:fc|cf|fw|wf|pc|cp|pw|wp)_)?rand[0-9]{2}(?:_[A-Za-z0-9_]+)?)\b)");
+    for (std::sregex_iterator it(stripped.begin(), stripped.end(), bareRandomSampler), end; it != end; ++it)
+    {
+        plainNames.insert((*it)[1]);
     }
     for (const auto& name : plainNames)
     {
@@ -310,78 +329,22 @@ static void PrefixPlainSamplerNames(std::string& program)
     [=[    GetReferencedSamplers(m_preprocessedCode);]=]
     [=[    PrefixPlainSamplerNames(m_preprocessedCode);
     GetReferencedSamplers(m_preprocessedCode);]=]
-    [=[static auto floatRand = ]=]
-    [=[static constexpr int FftLevelCount = 128;
-static constexpr float FftLevelGain = 1.0f;
-static constexpr float FftLevelHalfLifeSeconds = 0.08f;
-
-static const char* const FftShaderFunctions = R"(
-uniform float4 _fft[32];
-float _fft_level(int i)
-{
-    float4 v = _fft[i / 4];
-    int c = i - (i / 4) * 4;
-    return c == 0 ? v.x : (c == 1 ? v.y : (c == 2 ? v.z : v.w));
-}
-float get_fft(float pos)
-{
-    float x = saturate(pos) * 127.0;
-    int a = int(x);
-    int b = a < 127 ? a + 1 : 127;
-    return lerp(_fft_level(a), _fft_level(b), x - float(a));
-}
-float get_fft_hz(float hz)
-{
-    return get_fft(hz / 22050.0);
-}
-)";
-
-// Computed once per frame (several shaders read it each frame) and uploaded to the bound program.
-// Levels rise at once and halve every FftLevelHalfLifeSeconds, so bars don't flicker.
-static void UploadFftLevels(const PresetState& presetState)
-{
-    static std::array<float, FftLevelCount> levels{};
-    static int levelsFrame = -1;
-    if (presetState.renderContext.frame != levelsFrame)
-    {
-        levelsFrame = presetState.renderContext.frame;
-        const auto& audio = presetState.audioData;
-        constexpr int binsPerLevel = Audio::SpectrumSamples / FftLevelCount;
-        float const fps = std::max(presetState.renderContext.fps, 1.0f);
-        float const decay = std::pow(0.5f, 1.0f / (fps * FftLevelHalfLifeSeconds));
-        for (int level = 0; level < FftLevelCount; ++level)
-        {
-            float sum = 0;
-            for (int bin = level * binsPerLevel; bin < (level + 1) * binsPerLevel; ++bin)
-            {
-                sum += audio.spectrumLeft[bin] + audio.spectrumRight[bin];
-            }
-            float const raw = sum / (2 * binsPerLevel);
-            // Soft knee into 0-1: raw levels run ~0.2-1.6 on average with peaks near 10, so a
-            // linear scale either pins the bars at the top or leaves typical levels tiny.
-            levels[level] = std::max(1.0f - std::exp(-raw * FftLevelGain), levels[level] * decay);
-        }
-    }
-    GLint program = 0;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &program);
-    GLint const location = glGetUniformLocation(program, "_fft");
-    if (location >= 0)
-    {
-        glUniform4fv(location, FftLevelCount / 4, levels.data());
-    }
-}
-
-static auto floatRand = ]=]
-    [=[    m_shader.Bind();]=]
-    [=[    m_shader.Bind();
-    UploadFftLevels(presetState);]=]
-    [=[fullSource.append(MilkdropStaticShaders::Get()->GetPresetShaderHeader());]=]
-    [=[fullSource.append(MilkdropStaticShaders::Get()->GetPresetShaderHeader());
-    fullSource.append(FftShaderFunctions);]=]
-    [=[#include <algorithm>]=]
-    [=[#include <algorithm>
-#include <cmath>]=]
 )
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ScreenDependentRendering.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderConditionals.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderAudio.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderCompatibility.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/RandomTextures.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderInputs.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/MotionVectors.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/PresetTiming.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/LegacyRendering.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/WaveformCompatibility.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderStateCompatibility.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/BeatDropWaveforms.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/PredefinedVariables.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/PresetRenderingCompatibility.cmake)
 
 find_library(log-lib log)
 target_link_libraries(projectM PRIVATE ${log-lib})

@@ -1,6 +1,33 @@
+import java.io.File as JavaFile
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+// Record the upstream source actually compiled, including CI's latest-master checkout.
+// No network lookup at runtime: a newer upstream commit must not misidentify this APK.
+val projectmSource = rootProject.layout.projectDirectory.dir("native/projectm")
+val projectmVersion = providers.fileContents(projectmSource.file("CMakeLists.txt")).asText.map { source ->
+    Regex("""project\(\s*libprojectM\b[\s\S]*?\bVERSION\s+(\d+\.\d+\.\d+)""")
+        .find(source)?.groupValues?.get(1) ?: "Unknown"
+}.get()
+val projectmCommit = runCatching {
+    val revision = providers.exec {
+        workingDir(projectmSource.asFile)
+        commandLine("git", "rev-parse", "--show-toplevel", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim().lines()
+    // An exported engine directory inside this Git repository must not report the app's SHA.
+    if (revision.firstOrNull()?.let { JavaFile(it).canonicalFile } != projectmSource.asFile.canonicalFile) null
+    else revision.getOrNull(1)?.takeIf { it.matches(Regex("(?:[0-9a-f]{40}|[0-9a-f]{64})")) }
+}.getOrNull() ?: "Unknown"
+
+val castReceiverAppId = providers.gradleProperty("milkdropCastReceiverAppId")
+    .orElse(providers.environmentVariable("MILKDROP_CAST_RECEIVER_APP_ID"))
+    .getOrElse("").trim().uppercase()
+require(castReceiverAppId.isEmpty() || castReceiverAppId.matches(Regex("[0-9A-F]{8}"))) {
+    "milkdropCastReceiverAppId must be an 8-digit hexadecimal Google Cast application ID"
 }
 
 android {
@@ -10,13 +37,16 @@ android {
 
     defaultConfig {
         applicationId = "com.milkdrop.visualizer"
-        minSdk = 29
+        minSdk = 28
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "2.0.0"
+        buildConfigField("String", "PROJECTM_VERSION", "\"$projectmVersion\"")
+        buildConfigField("String", "PROJECTM_COMMIT", "\"$projectmCommit\"")
+        buildConfigField("String", "CAST_RECEIVER_APP_ID", "\"$castReceiverAppId\"")
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
 
         externalNativeBuild {
@@ -58,6 +88,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 
@@ -66,6 +97,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.mediarouter:mediarouter:1.8.1")
+    implementation("com.google.android.gms:play-services-cast-framework:22.1.0")
 
-    testImplementation("junit:junit:4.13.2")
 }

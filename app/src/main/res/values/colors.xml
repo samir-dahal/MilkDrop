@@ -3,7 +3,7 @@
 
     <!-- Overlays: flat translucent black, no blur or shadow (a visible overlay already costs fps). -->
     <color name="overlay_bar">#B3000000</color>
-    <color name="overlay_sheet">#E6000000</color>
+    <color name="overlay_sheet">#B3000000</color>
     <color name="overlay_content">#F2FFFFFF</color>
     <color name="overlay_content_secondary">#B3FFFFFF</color>
     <color name="overlay_content_off">#66FFFFFF</color>

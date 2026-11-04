@@ -2,24 +2,51 @@
 #include <android/log.h>
 #include <sched.h>
 #include <cerrno>
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <exception>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include <projectM-4/projectM.h>
+#include <projectM-4/logging.h>
 #include <projectM-4/playlist_callbacks.h>
 #include <projectM-4/playlist_core.h>
 #include <projectM-4/playlist_items.h>
+#include <projectM-4/playlist_memory.h>
 #include <projectM-4/playlist_playback.h>
+
+#include "projectm/ShaderAudioApi.hpp"
+#include "projectm/ShaderInputs.hpp"
 
 namespace {
 
 struct BridgeHandle {
     projectm_handle projectM = nullptr;
     projectm_playlist_handle playlist = nullptr;
+    // Written only by successful playlist switch callbacks on the GL thread.
+    std::string activePresetPath;
+    std::vector<float> pcmScratch;
+    int sampleRateHz = 0;
+    bool audioSnapshot = false;
+
+    ~BridgeHandle() {
+        if (playlist != nullptr) projectm_playlist_destroy(playlist);
+        if (projectM != nullptr) projectm_destroy(projectM);
+    }
 };
 
 BridgeHandle* AsHandle(jlong handle) {
     return reinterpret_cast<BridgeHandle*>(handle);
+}
+
+void OnProjectMLog(const char* message, projectm_log_level level, void*) {
+    int priority = ANDROID_LOG_INFO;
+    if (level >= PROJECTM_LOG_LEVEL_ERROR) priority = ANDROID_LOG_ERROR;
+    else if (level == PROJECTM_LOG_LEVEL_WARN) priority = ANDROID_LOG_WARN;
+    __android_log_print(priority, "projectM", "%s", message != nullptr ? message : "");
 }
 
 // projectM's C API is not always exception-safe at its own boundary — e.g. loading "idle://"
@@ -54,7 +81,11 @@ void OnPresetSwitchFailed(const char* presetFilename, const char* message, void*
                         message != nullptr ? message : "?");
 }
 
-void OnPresetSwitched(bool isHardCut, unsigned int index, void*) {
+void OnPresetSwitched(bool isHardCut, unsigned int index, void* userData) {
+    auto* handle = static_cast<BridgeHandle*>(userData);
+    std::unique_ptr<char, decltype(&projectm_playlist_free_string)> path(
+        projectm_playlist_item(handle->playlist, index), &projectm_playlist_free_string);
+    if (path) handle->activePresetPath = path.get();
     __android_log_print(ANDROID_LOG_DEBUG, "MilkDropJNI", "Switched to #%u (%s)", index,
                         isHardCut ? "hard cut" : "soft cut");
 }
@@ -65,12 +96,25 @@ extern "C" {
 
 JNIEXPORT jlong JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeCreate(JNIEnv*, jobject) {
-    auto* handle = new BridgeHandle();
-    handle->projectM = projectm_create();
-    handle->playlist = projectm_playlist_create(handle->projectM);
-    projectm_playlist_set_preset_switch_failed_event_callback(handle->playlist, &OnPresetSwitchFailed, nullptr);
-    projectm_playlist_set_preset_switched_event_callback(handle->playlist, &OnPresetSwitched, nullptr);
-    return reinterpret_cast<jlong>(handle);
+    return SafeCallOr<jlong>(0, [] {
+        // Master reports loader/context failures through its log callback and may return null.
+        projectm_set_log_callback(&OnProjectMLog, false, nullptr);
+        projectm_set_log_level(PROJECTM_LOG_LEVEL_INFO, false);
+        auto handle = std::make_unique<BridgeHandle>();
+        handle->projectM = projectm_create();
+        if (handle->projectM == nullptr) {
+            __android_log_print(ANDROID_LOG_ERROR, "MilkDropJNI", "projectM initialization failed; see projectM logs");
+            return jlong{0};
+        }
+        handle->playlist = projectm_playlist_create(handle->projectM);
+        if (handle->playlist == nullptr) {
+            __android_log_print(ANDROID_LOG_ERROR, "MilkDropJNI", "projectM playlist initialization failed");
+            return jlong{0};
+        }
+        projectm_playlist_set_preset_switch_failed_event_callback(handle->playlist, &OnPresetSwitchFailed, nullptr);
+        projectm_playlist_set_preset_switched_event_callback(handle->playlist, &OnPresetSwitched, handle.get());
+        return reinterpret_cast<jlong>(handle.release());
+    });
 }
 
 JNIEXPORT void JNICALL
@@ -79,8 +123,6 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeDestroy(JNIEnv*, jobjec
     if (handle == nullptr) {
         return;
     }
-    projectm_playlist_destroy(handle->playlist);
-    projectm_destroy(handle->projectM);
     delete handle;
 }
 
@@ -93,9 +135,29 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetWindowSize(
 }
 
 JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetScreenDependentRendering(
+        JNIEnv*, jobject, jlong handlePtr, jboolean enabled) {
+    // The build patch makes projectM's existing per-instance aspect flag effective.
+    projectm_set_aspect_correction(AsHandle(handlePtr)->projectM, enabled != JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeRenderFrame(JNIEnv*, jobject, jlong handlePtr) {
     projectm_handle projectM = AsHandle(handlePtr)->projectM;
     SafeCall([&] { projectm_opengl_render_frame(projectM); });
+}
+
+JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetShaderAudioSettings(
+        JNIEnv*, jobject, jlong handlePtr, jfloat scaling, jfloat noiseFloor) {
+    SafeCall([&] { milkdrop_set_shader_audio_settings(AsHandle(handlePtr)->projectM, scaling, noiseFloor); });
+}
+
+JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetPointer(
+        JNIEnv*, jobject, jlong handlePtr, jfloat x, jfloat y, jboolean down, jboolean pressed) {
+    SafeCall([&] { milkdrop_set_pointer(AsHandle(handlePtr)->projectM, x, y,
+                                       down == JNI_TRUE, pressed == JNI_TRUE); });
 }
 
 JNIEXPORT void JNICALL
@@ -130,6 +192,13 @@ JNIEXPORT void JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetHardCutEnabled(
         JNIEnv*, jobject, jlong handlePtr, jboolean enabled) {
     projectm_set_hard_cut_enabled(AsHandle(handlePtr)->projectM, enabled);
+}
+
+JNIEXPORT void JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetAdditionalRandomTime(
+        JNIEnv*, jobject, jlong handlePtr, jdouble seconds) {
+    // The Android TimeKeeper patch interprets this as a uniform, nonnegative addition.
+    projectm_set_easter_egg(AsHandle(handlePtr)->projectM, static_cast<float>(seconds));
 }
 
 JNIEXPORT void JNICALL
@@ -227,6 +296,40 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetPlaylistPosition(JNI
     return SafeCallOr<jint>(0, [&] { return static_cast<jint>(projectm_playlist_get_position(playlist)); });
 }
 
+JNIEXPORT jstring JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeGetCurrentPresetPath(
+        JNIEnv* env, jobject, jlong handlePtr) {
+    const auto& path = AsHandle(handlePtr)->activePresetPath;
+    return path.empty() ? nullptr : env->NewStringUTF(path.c_str());
+}
+
+// Kotlin's list is stable, but projectM removes failed presets from its own playlist. Resolve
+// selections by filename at the time of the request instead of reusing an obsolete native index.
+JNIEXPORT jint JNICALL
+Java_com_milkdrop_visualizer_render_ProjectMBridge_nativePlayPresetPath(
+        JNIEnv* env, jobject, jlong handlePtr, jstring path, jboolean hardCut) {
+    const char* target = env->GetStringUTFChars(path, nullptr);
+    if (target == nullptr) return -1;
+    const jint position = SafeCallOr<jint>(-1, [&] {
+        const auto playlist = AsHandle(handlePtr)->playlist;
+        std::unique_ptr<char*, decltype(&projectm_playlist_free_string_array)> items(
+            projectm_playlist_items(playlist, 0, projectm_playlist_size(playlist)),
+            &projectm_playlist_free_string_array);
+        if (!items) return jint{-1};
+        for (uint32_t index = 0; items.get()[index] != nullptr; ++index) {
+            if (std::strcmp(items.get()[index], target) == 0) {
+                return static_cast<jint>(projectm_playlist_set_position(playlist, index, hardCut == JNI_TRUE));
+            }
+        }
+        // A previously failed file stays selectable in the UI. Reinsert it for an explicit retry.
+        const uint32_t index = projectm_playlist_size(playlist);
+        if (!projectm_playlist_add_preset(playlist, target, true)) return jint{-1};
+        return static_cast<jint>(projectm_playlist_set_position(playlist, index, hardCut == JNI_TRUE));
+    });
+    env->ReleaseStringUTFChars(path, target);
+    return position;
+}
+
 JNIEXPORT void JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeClearPresets(JNIEnv*, jobject, jlong handlePtr) {
     projectm_playlist_clear(AsHandle(handlePtr)->playlist);
@@ -243,14 +346,35 @@ Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeSetPlaylistPosition(
 
 JNIEXPORT void JNICALL
 Java_com_milkdrop_visualizer_render_ProjectMBridge_nativeFeedPcmInt16(
-        JNIEnv* env, jobject, jlong handlePtr, jshortArray samples, jint frameCount, jint channels) {
-    jshort* data = env->GetShortArrayElements(samples, nullptr);
-    projectm_channels channelEnum = (channels == 2) ? PROJECTM_STEREO : PROJECTM_MONO;
-    projectm_pcm_add_int16(AsHandle(handlePtr)->projectM,
-                            reinterpret_cast<const int16_t*>(data),
-                            static_cast<unsigned int>(frameCount),
-                            channelEnum);
-    env->ReleaseShortArrayElements(samples, data, JNI_ABORT);
+        JNIEnv* env, jobject, jlong handlePtr, jshortArray samples, jint frameCount, jint channels,
+        jint sampleRateHz, jboolean snapshot, jfloat sensitivity) {
+    if (!samples || frameCount <= 0 || (channels != 1 && channels != 2)) return;
+    auto* handle = AsHandle(handlePtr);
+    if (!handle) return;
+    const int frames = std::min(frameCount, env->GetArrayLength(samples) / channels);
+    if (frames <= 0) return;
+    SafeCall([&] {
+        const int rate = sampleRateHz > 0 ? sampleRateHz : 44100;
+        const bool isSnapshot = snapshot == JNI_TRUE;
+        if (rate != handle->sampleRateHz || isSnapshot != handle->audioSnapshot) {
+            milkdrop_set_audio_input_format(handle->projectM, static_cast<uint32_t>(rate), isSnapshot);
+            handle->sampleRateHz = rate;
+            handle->audioSnapshot = isSnapshot;
+        }
+        const size_t sampleCount = static_cast<size_t>(frames) * channels;
+        handle->pcmScratch.resize(sampleCount);
+        jshort* data = env->GetShortArrayElements(samples, nullptr);
+        if (!data) return;
+        const float gain = std::isfinite(sensitivity) ? std::clamp(sensitivity, 0.0f, 25.0f) : 1.0f;
+        // Float input preserves boosted detail; converting back to PCM16 would clip it first.
+        for (size_t i = 0; i < sampleCount; ++i) {
+            handle->pcmScratch[i] = static_cast<float>(data[i]) * (gain / 32768.0f);
+        }
+        env->ReleaseShortArrayElements(samples, data, JNI_ABORT);
+        projectm_pcm_add_float(handle->projectM, handle->pcmScratch.data(),
+                              static_cast<unsigned int>(frames),
+                              channels == 2 ? PROJECTM_STEREO : PROJECTM_MONO);
+    });
 }
 
 // Restricts the given threads of this process to the given CPU cores. Java has no API for thread

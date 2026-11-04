@@ -1,6 +1,7 @@
 package com.milkdrop.visualizer.presets
 
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.Executor
 
 /**
@@ -14,6 +15,8 @@ class PresetRatingsStore(
     private val presetsDir: File,
     private val favouritesFile: File,
     private val hiddenFile: File,
+    private val canAccessFiles: () -> Boolean = { true },
+    private val onFileError: (File, Exception) -> Unit = { _, _ -> },
     /** Runs writes off the UI thread; shared storage can be slow. */
     private val writeExecutor: Executor,
 ) {
@@ -22,19 +25,41 @@ class PresetRatingsStore(
     fun loadHidden(): Set<String> = read(hiddenFile)
 
     fun save(favourites: Set<String>, hidden: Set<String>) {
+        // Never persist empty startup ratings over existing files before permission is granted.
+        if (!canAccessFiles()) return
         writeExecutor.execute {
-            write(favouritesFile, FAVOURITES_HEADER, favourites)
-            write(hiddenFile, HIDDEN_HEADER, hidden)
+            if (!canAccessFiles()) return@execute
+            writeSafely(favouritesFile, FAVOURITES_HEADER, favourites)
+            writeSafely(hiddenFile, HIDDEN_HEADER, hidden)
         }
     }
 
     private fun read(file: File): Set<String> {
-        if (!file.isFile) return emptySet()
-        return file.readLines()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .map { File(presetsDir, it).path }
-            .toSet()
+        if (!canAccessFiles()) return emptySet()
+        return try {
+            if (!file.isFile) return emptySet()
+            file.readLines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .map { File(presetsDir, it).path }
+                .toSet()
+        } catch (e: IOException) {
+            onFileError(file, e)
+            emptySet()
+        } catch (e: SecurityException) {
+            onFileError(file, e)
+            emptySet()
+        }
+    }
+
+    private fun writeSafely(file: File, header: String, paths: Set<String>) {
+        try {
+            write(file, header, paths)
+        } catch (e: IOException) {
+            onFileError(file, e)
+        } catch (e: SecurityException) {
+            onFileError(file, e)
+        }
     }
 
     /** Writes a temporary file first, then renames it, so a crash can't leave a half-written list. */

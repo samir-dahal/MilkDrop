@@ -24,7 +24,7 @@ class MilkDropSurfaceView(
             nextRenderNanos = 0L
             val displayHz = display?.refreshRate?.takeIf { it > 0f } ?: DEFAULT_REFRESH_HZ
             performanceHints.setTargetFrameNanos(
-                if (frameIntervalNanos > 0L) frameIntervalNanos else (1_000_000_000L / displayHz).toLong()
+                if (effectiveFrameInterval() > 0L) effectiveFrameInterval() else (1_000_000_000L / displayHz).toLong()
             )
         }
 
@@ -32,6 +32,22 @@ class MilkDropSurfaceView(
     private var nextRenderNanos = 0L
     private var pacing = false
     private var resolutionScale = 1f
+    private var castSize: Pair<Int, Int>? = null
+    private var castFrameRateLimit = 0
+
+    /** Keep the render buffer landscape while the phone displays its casting controls. */
+    fun setCastSize(size: Pair<Int, Int>?, frameRateLimit: Int = 0) {
+        castSize = size
+        castFrameRateLimit = if (size == null) 0 else frameRateLimit.coerceAtLeast(0)
+        nextRenderNanos = 0L
+        val displayHz = display?.refreshRate?.takeIf { it > 0f } ?: DEFAULT_REFRESH_HZ
+        performanceHints.setTargetFrameNanos(effectiveFrameInterval().takeIf { it > 0L }
+            ?: (1_000_000_000L / displayHz).toLong())
+        post { applyResolutionScale() }
+    }
+
+    private fun effectiveFrameInterval() = if (castFrameRateLimit > 0)
+        maxOf(frameIntervalNanos, 1_000_000_000L / castFrameRateLimit) else frameIntervalNanos
 
     /**
      * Frame pacing is driven by vsync instead of sleeping on the GL thread. Sleeping after each
@@ -42,7 +58,7 @@ class MilkDropSurfaceView(
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (!pacing) return
-            val interval = frameIntervalNanos
+            val interval = effectiveFrameInterval()
             if (interval == 0L) {
                 requestFrame()
             } else if (frameTimeNanos >= nextRenderNanos - VSYNC_SLACK_NANOS) {
@@ -66,6 +82,9 @@ class MilkDropSurfaceView(
 
     init {
         setEGLContextClientVersion(3)
+        // projectM draws 2D into its own targets. Do not require the default chooser's
+        // 16-bit depth buffer; use the same RGB requirements as the startup graphics probe.
+        setEGLConfigChooser(8, 8, 8, 0, 0, 0)
         // Keeps projectM's GL objects (and the loaded playlist) alive across pause/resume, e.g.
         // behind the permission and screen-capture dialogs, instead of rebuilding it every time.
         preserveEGLContextOnPause = true
@@ -122,8 +141,11 @@ class MilkDropSurfaceView(
 
     private fun applyResolutionScale() {
         if (width > 0 && height > 0) {
-            val scaledWidth = (width * resolutionScale).toInt().coerceAtLeast(1)
-            val scaledHeight = (height * resolutionScale).toInt().coerceAtLeast(1)
+            // Cast dimensions describe the destination, just as the view dimensions
+            // describe the phone. Apply the same quality to either render target;
+            // the output compositor/encoder still fills its negotiated surface.
+            val scaledWidth = ((castSize?.first ?: width) * resolutionScale).toInt().coerceAtLeast(1)
+            val scaledHeight = ((castSize?.second ?: height) * resolutionScale).toInt().coerceAtLeast(1)
             holder.setFixedSize(scaledWidth, scaledHeight)
         }
     }

@@ -14,6 +14,65 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <FrameLayout android:id="@+id/receiverPanel" android:layout_width="match_parent"
+        android:layout_height="match_parent" android:background="@android:color/black"
+        android:visibility="gone">
+        <SurfaceView android:id="@+id/receiverVideo" android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <TextView android:id="@+id/receiverWaiting" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_gravity="center"
+            android:gravity="center" android:padding="32dp" android:textSize="20sp"
+            android:textColor="@color/overlay_content" android:text="@string/cast_receiving" />
+    </FrameLayout>
+
+    <!-- The renderer keeps running beneath this View; its framebuffer alone goes to the TV. -->
+    <LinearLayout
+        android:id="@+id/castStatus"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:visibility="gone">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/cast_you_are_casting" android:textColor="@color/overlay_content_secondary"
+            android:textSize="18sp" android:gravity="center" />
+        <androidx.appcompat.widget.AppCompatTextView android:id="@+id/castDeviceName" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:textColor="@color/overlay_content" android:textSize="28sp" android:gravity="center"
+            android:maxLines="2" android:ellipsize="end"
+            app:autoSizeTextType="uniform" app:autoSizeMinTextSize="14sp"
+            app:autoSizeMaxTextSize="28sp" app:autoSizeStepGranularity="1sp" />
+        <TextView android:id="@+id/castControlMessage" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:maxWidth="440dp" android:gravity="center"
+            android:text="@string/cast_control_message" android:textColor="@color/overlay_content_secondary"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/btnCast"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="16dp"
+        android:paddingHorizontal="16dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:background="@drawable/cast_button_background"
+        android:focusable="true"
+        android:clickable="true"
+        android:visibility="gone"
+        android:contentDescription="@string/cast_start">
+        <ImageView android:id="@+id/castButtonIcon" android:layout_width="24dp"
+            android:layout_height="24dp" android:importantForAccessibility="no"
+            app:srcCompat="@drawable/ic_cast" />
+        <TextView android:id="@+id/castButtonText" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginStart="8dp"
+            android:text="@string/cast_start" android:textColor="@color/overlay_content"
+            android:textSize="16sp" android:importantForAccessibility="no" />
+    </LinearLayout>
+
     <!-- Plain shadowed text rather than a badge or panel, so it doesn't box off part of the visual.
          Shows the current preset's name, or a status message while presets load. -->
     <TextView
@@ -68,6 +127,7 @@
             <TextView
                 android:id="@+id/btnShuffle"
                 style="@style/ControlButton"
+                android:background="@drawable/shuffle_button_background"
                 app:drawableTopCompat="@drawable/ic_shuffle"
                 android:text="@string/btn_shuffle"
                 android:textColor="@color/toggle_content"
@@ -160,12 +220,13 @@
 
             <ImageButton
                 android:id="@+id/btnCloseSettings"
+                android:nextFocusDown="@id/switchAutoAdvance"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:padding="12dp"
                 android:src="@drawable/ic_close"
                 app:tint="@color/overlay_content"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/remote_focus_background"
                 android:contentDescription="@string/settings_close" />
 
         </LinearLayout>
@@ -185,6 +246,7 @@
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switchAutoAdvance"
+                    android:nextFocusUp="@id/btnCloseSettings"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:text="@string/setting_auto_advance"
@@ -199,114 +261,176 @@
                     android:textColor="@color/overlay_content"
                     android:textSize="16sp" />
 
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchPresetNameDuringTransitions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/setting_preset_name_transitions"
+                    android:textColor="@color/overlay_content"
+                    android:textSize="16sp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchScreenDependentRendering"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/setting_screen_dependent_rendering"
+                    android:textColor="@color/overlay_content"
+                    android:textSize="16sp" />
+
                 <TextView
                     style="@style/SettingLabel"
-                    android:labelFor="@id/groupPresetDuration"
+                    android:labelFor="@id/spinnerPresetDuration"
                     android:text="@string/setting_preset_duration" />
 
-                <RadioGroup
-                    android:id="@+id/groupPresetDuration"
-                    style="@style/SegmentedGroup">
-
-                    <RadioButton
-                        android:id="@+id/duration10"
-                        style="@style/Segment"
-                        android:text="@string/duration_10" />
-
-                    <RadioButton
-                        android:id="@+id/duration15"
-                        style="@style/Segment"
-                        android:text="@string/duration_15" />
-
-                    <RadioButton
-                        android:id="@+id/duration30"
-                        style="@style/Segment"
-                        android:text="@string/duration_30" />
-
-                    <RadioButton
-                        android:id="@+id/duration60"
-                        style="@style/Segment"
-                        android:text="@string/duration_60" />
-
-                </RadioGroup>
+                <Spinner
+                    android:id="@+id/spinnerPresetDuration"
+                    style="@style/TimingSpinner"
+                    android:contentDescription="@string/setting_preset_duration" />
 
                 <TextView
                     style="@style/SettingLabel"
-                    android:labelFor="@id/groupTransition"
-                    android:text="@string/setting_transition" />
+                    android:labelFor="@id/spinnerAdditionalRandom"
+                    android:text="@string/setting_additional_random" />
 
-                <RadioGroup
-                    android:id="@+id/groupTransition"
-                    style="@style/SegmentedGroup">
-
-                    <RadioButton
-                        android:id="@+id/transitionSmooth"
-                        style="@style/Segment"
-                        android:text="@string/transition_smooth" />
-
-                    <RadioButton
-                        android:id="@+id/transitionInstant"
-                        style="@style/Segment"
-                        android:text="@string/transition_instant" />
-
-                </RadioGroup>
+                <Spinner
+                    android:id="@+id/spinnerAdditionalRandom"
+                    style="@style/TimingSpinner"
+                    android:contentDescription="@string/setting_additional_random" />
 
                 <TextView
                     style="@style/SettingLabel"
-                    android:labelFor="@id/groupFrameRate"
+                    android:labelFor="@id/spinnerTransitionTime"
+                    android:text="@string/setting_transition_time" />
+
+                <Spinner
+                    android:id="@+id/spinnerTransitionTime"
+                    style="@style/TimingSpinner"
+                    android:contentDescription="@string/setting_transition_time" />
+
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/transition_random_description"
+                    android:textColor="@color/overlay_content_secondary" android:textSize="13sp" />
+
+                <TextView
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/spinnerFrameRate"
                     android:text="@string/setting_frame_rate" />
 
-                <RadioGroup
-                    android:id="@+id/groupFrameRate"
-                    style="@style/SegmentedGroup">
-
-                    <RadioButton
-                        android:id="@+id/fps30"
-                        style="@style/Segment"
-                        android:text="@string/fps_30" />
-
-                    <RadioButton
-                        android:id="@+id/fps45"
-                        style="@style/Segment"
-                        android:text="@string/fps_45" />
-
-                    <RadioButton
-                        android:id="@+id/fps60"
-                        style="@style/Segment"
-                        android:text="@string/fps_60" />
-
-                    <RadioButton
-                        android:id="@+id/fpsMax"
-                        style="@style/Segment"
-                        android:text="@string/fps_max" />
-
-                </RadioGroup>
+                <Spinner android:id="@+id/spinnerFrameRate" style="@style/TimingSpinner"
+                    android:contentDescription="@string/setting_frame_rate" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/frame_rate_description" android:textSize="13sp"
+                    android:textColor="@color/overlay_content_secondary" />
 
                 <TextView
                     style="@style/SettingLabel"
-                    android:labelFor="@id/groupQuality"
+                    android:labelFor="@id/sliderMeshSizeX"
+                    android:text="@string/setting_mesh_size" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="24dp"
+                        android:layout_height="wrap_content"
+                        android:text="@string/mesh_size_x"
+                        android:textColor="@color/overlay_content_secondary"
+                        android:textSize="16sp" />
+
+                    <SeekBar
+                        android:id="@+id/sliderMeshSizeX"
+                        android:contentDescription="@string/mesh_size_x_accessibility"
+                        android:focusable="true"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:max="300"
+                        android:min="8"
+                        android:progress="32" />
+
+                    <EditText
+                        android:id="@+id/inputMeshSizeX"
+                        android:contentDescription="@string/mesh_size_x_accessibility"
+                        android:singleLine="true"
+                        android:layout_width="64dp"
+                        android:layout_height="48dp"
+                        android:gravity="center"
+                        android:imeOptions="actionDone"
+                        android:inputType="number"
+                        android:selectAllOnFocus="true"
+                        android:text="32"
+                        android:textColor="@color/overlay_content"
+                        android:textSize="16sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="24dp"
+                        android:layout_height="wrap_content"
+                        android:text="@string/mesh_size_y"
+                        android:textColor="@color/overlay_content_secondary"
+                        android:textSize="16sp" />
+
+                    <SeekBar
+                        android:id="@+id/sliderMeshSizeY"
+                        android:contentDescription="@string/mesh_size_y_accessibility"
+                        android:focusable="true"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:max="300"
+                        android:min="8"
+                        android:progress="24" />
+
+                    <EditText
+                        android:id="@+id/inputMeshSizeY"
+                        android:contentDescription="@string/mesh_size_y_accessibility"
+                        android:singleLine="true"
+                        android:layout_width="64dp"
+                        android:layout_height="48dp"
+                        android:gravity="center"
+                        android:imeOptions="actionDone"
+                        android:inputType="number"
+                        android:selectAllOnFocus="true"
+                        android:text="24"
+                        android:textColor="@color/overlay_content"
+                        android:textSize="16sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/mesh_size_description"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
+
+                <TextView
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/spinnerQuality"
                     android:text="@string/setting_quality" />
 
-                <RadioGroup
-                    android:id="@+id/groupQuality"
-                    style="@style/SegmentedGroup">
+                <Spinner
+                    android:id="@+id/spinnerQuality"
+                    style="@style/TimingSpinner"
+                    android:contentDescription="@string/setting_quality" />
 
-                    <RadioButton
-                        android:id="@+id/qualityLow"
-                        style="@style/Segment"
-                        android:text="@string/quality_low" />
-
-                    <RadioButton
-                        android:id="@+id/qualityMedium"
-                        style="@style/Segment"
-                        android:text="@string/quality_medium" />
-
-                    <RadioButton
-                        android:id="@+id/qualityHigh"
-                        style="@style/Segment"
-                        android:text="@string/quality_high" />
-
-                </RadioGroup>
+                <TextView
+                    android:id="@+id/qualityDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
 
                 <TextView
                     style="@style/SettingLabel"
@@ -318,19 +442,19 @@
                     style="@style/SegmentedGroup">
 
                     <RadioButton
+                        android:id="@+id/audioSourceAutomatic"
+                        style="@style/Segment"
+                        android:text="@string/audio_source_automatic" />
+
+                    <RadioButton
                         android:id="@+id/audioSourceMic"
                         style="@style/Segment"
                         android:text="@string/audio_source_mic" />
 
                     <RadioButton
-                        android:id="@+id/audioSourcePhone"
+                        android:id="@+id/audioSourceInternal"
                         style="@style/Segment"
-                        android:text="@string/audio_source_phone" />
-
-                    <RadioButton
-                        android:id="@+id/audioSourceOutputMix"
-                        style="@style/Segment"
-                        android:text="@string/audio_source_output_mix" />
+                        android:text="@string/audio_source_internal" />
 
                 </RadioGroup>
 
@@ -341,6 +465,164 @@
                     android:layout_marginTop="8dp"
                     android:textColor="@color/overlay_content_secondary"
                     android:textSize="13sp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchStereoInternalAudio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/setting_stereo_internal_audio"
+                    android:textColor="@color/overlay_content"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/stereo_internal_audio_description"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchSwipeGestures"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/setting_swipe_gestures"
+                    android:textColor="@color/overlay_content"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/audioSensitivityLabel"
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/sliderAudioSensitivity"
+                    android:text="@string/setting_audio_sensitivity" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <SeekBar
+                        android:id="@+id/sliderAudioSensitivity"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="48dp"
+                        android:max="250" />
+                    <Button
+                        android:id="@+id/resetAudioSensitivity"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:text="@string/reset_audio_sensitivity"
+                        android:contentDescription="@string/reset_audio_sensitivity_description" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/audio_sensitivity_description"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/fftShaderScalingLabel"
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/sliderFftShaderScaling"
+                    android:text="@string/setting_fft_shader_scaling" />
+
+                <SeekBar
+                    android:id="@+id/sliderFftShaderScaling"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:max="200" />
+
+                <TextView
+                    android:id="@+id/fftShaderNoiseFloorLabel"
+                    style="@style/SettingLabel"
+                    android:labelFor="@id/sliderFftShaderNoiseFloor"
+                    android:text="@string/setting_fft_shader_noise_floor" />
+
+                <SeekBar
+                    android:id="@+id/sliderFftShaderNoiseFloor"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:max="100" />
+
+                <TextView
+                    android:id="@+id/btnWirelessDisplay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:minHeight="48dp"
+                    android:padding="12dp"
+                    android:gravity="center_vertical"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:background="@drawable/remote_focus_background"
+                    android:text="@string/cast_wireless_settings"
+                    android:textColor="@color/overlay_content"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/wirelessDisplayDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/cast_wireless_description"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:id="@+id/engineInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    android:padding="12dp"
+                    android:orientation="vertical"
+                    android:focusable="true"
+                    android:background="@drawable/remote_focus_background">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/engine_info_title"
+                        android:textColor="@color/overlay_content"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/engineLiveInfo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/overlay_content"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/engine_patch_info"
+                        android:textColor="@color/overlay_content_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/engineUpstreamInfo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:fontFamily="monospace"
+                        android:breakStrategy="simple"
+                        android:textColor="@color/overlay_content_secondary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/engine_snapshot_description"
+                        android:textColor="@color/overlay_content_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
 
             </LinearLayout>
 
@@ -353,7 +635,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:background="#EE000000"
+        android:background="@color/overlay_sheet"
         android:visibility="gone">
 
         <LinearLayout
@@ -365,6 +647,8 @@
 
             <EditText
                 android:id="@+id/playlistSearch"
+                android:nextFocusRight="@id/btnFavouritesOnly"
+                android:nextFocusDown="@id/playlistRecyclerView"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -377,6 +661,9 @@
             <!-- Shows only favourites when activated. -->
             <TextView
                 android:id="@+id/btnFavouritesOnly"
+                android:nextFocusLeft="@id/playlistSearch"
+                android:nextFocusRight="@id/btnClosePlaylist"
+                android:nextFocusDown="@id/playlistRecyclerView"
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:gravity="center_vertical"
@@ -389,17 +676,31 @@
                 app:drawableTint="@color/toggle_content"
                 android:clickable="true"
                 android:focusable="true"
-                android:background="?android:attr/selectableItemBackground" />
+                android:background="@drawable/remote_focus_background" />
 
             <Button
                 android:id="@+id/btnClosePlaylist"
+                android:nextFocusLeft="@id/btnFavouritesOnly"
+                android:nextFocusDown="@id/playlistRecyclerView"
                 style="?android:attr/buttonStyleSmall"
+                android:background="@drawable/remote_focus_background"
+                android:textColor="@color/overlay_content"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/playlist_close" />
 
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/playlistResultsStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+            android:textColor="@color/overlay_content"
+            android:textSize="16sp"
+            android:accessibilityLiveRegion="polite"
+            android:visibility="gone" />
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/playlistRecyclerView"
             android:layout_width="match_parent"

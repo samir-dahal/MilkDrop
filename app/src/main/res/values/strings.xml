@@ -1,4 +1,36 @@
 <resources>
+    <string name="engine_info_title">Engine information</string>
+    <string name="engine_fps_value">%1$.1f FPS</string>
+    <string name="engine_fps_measuring">Measuring FPS…</string>
+    <string name="engine_live_info">%1$s ◉ projectM %2$s with MilkDrop patches</string>
+    <string name="engine_patch_info">MilkDrop uses a customized projectM engine to run MilkDrop presets. Its patches improve BeatDrop compatibility for waveforms, FFT shader functions, accurate beat detection, textures, preset variables and pixel alignment, and add date/time and touch input.</string>
+    <string name="engine_upstream_info">Upstream master version: %1$s ◉ Commit:\n%2$s</string>
+    <string name="engine_snapshot_description">FPS shows how many frames the visualizer renders each second; it may differ from the frame-rate setting and the TV’s playback rate. The version and commit identify the source bundled with this app, rather than the latest online release. Engine updates arrive with app updates.</string>
+    <string name="cast_start">Cast</string>
+    <string name="cast_live_device">%1$s (MilkDrop Live)</string>
+    <string name="cast_receiving">Receiving visuals…</string>
+    <string name="cast_receiving_from">Connecting to %1$s…\nPress Back to stop receiving.</string>
+    <string name="cast_stop">Stop cast</string>
+    <string name="cast_connecting">Connecting…</string>
+    <string name="cast_disconnecting">Disconnecting…</string>
+    <string name="cast_wireless_disconnect">Disconnect wireless display…</string>
+    <string name="cast_finish_disconnect">The display is still connected. Disconnect it in your phone’s connection settings to stop sharing.</string>
+    <string name="cast_wireless_device">Wireless display</string>
+    <string name="cast_name_permission">Optional: allow Nearby devices or Location access to identify your connected TV or projector. Casting still works without it.</string>
+    <string name="cast_control_message_buffered">Your visuals are playing on your TV or projector. Google Cast video may be several seconds behind. Control presets and settings from this device.</string>
+    <string name="cast_choose_device">Cast to</string>
+    <string name="cast_wireless_settings">Wireless display / Miracast…</string>
+    <string name="cast_wireless_description">Open your phone’s connection settings to find Miracast or Smart View displays. After connecting, return to MilkDrop. Available options depend on your phone and TV.</string>
+    <string name="cast_wireless_unavailable">Wireless display settings aren’t available on this device.</string>
+    <string name="cast_device">TV or projector</string>
+    <string name="cast_you_are_casting">You are casting to</string>
+    <string name="cast_control_message">Your visuals are playing on your TV or projector. Control presets and settings from this device. Tap here to show or hide the controls.</string>
+    <string name="cast_failed">Couldn’t cast to this device. Check the connection and try again.</string>
+    <string name="shuffle_enabled">Shuffle on</string>
+    <string name="shuffle_disabled">Shuffle off</string>
+    <string name="graphics_unsupported_title">Graphics support required</string>
+    <string name="graphics_unsupported_message">This device reports %1$s, but MilkDrop needs a working OpenGL ES 3.0 graphics context. OpenGL ES 2.0 devices cannot run this projectM renderer. Audio and storage permissions cannot enable the missing graphics features. You can connect a compatible Android TV device to a projector by HDMI.</string>
+    <string name="close_app">Close app</string>
     <string name="app_name">MilkDrop</string>
 
     <string name="btn_previous">Prev</string>
@@ -20,35 +52,112 @@
     <string name="settings_close">Close settings</string>
     <string name="setting_auto_advance">Auto-advance</string>
     <string name="setting_beat_cuts">Change on big beats</string>
+    <string name="setting_preset_name_transitions">Preset name during transitions</string>
     <string name="setting_preset_duration">Time per preset</string>
+    <string name="setting_additional_random">Additional random time</string>
+    <string name="setting_transition_time">Transition time</string>
+    <string-array name="preset_duration_options">
+        <item>5 s</item><item>10 s</item><item>15 s</item><item>20 s</item><item>25 s</item>
+        <item>30 s</item><item>45 s</item><item>60 s</item>
+    </string-array>
+    <string-array name="additional_random_options">
+        <item>Off</item><item>5 s</item><item>10 s</item><item>15 s</item>
+        <item>20 s</item><item>25 s</item><item>30 s</item>
+    </string-array>
+    <string-array name="transition_time_options">
+        <item>Random</item><item>0 s (Instant)</item><item>0.5 s</item><item>1 s</item><item>1.5 s</item>
+        <item>1.7 s (default)</item><item>2 s</item><item>2.5 s</item><item>3 s</item><item>5 s</item>
+    </string-array>
+    <string name="transition_random_description">Instant switches presets without a fade. Random chooses a new fade duration between 0 and 5 seconds for each preset change.</string>
     <string name="duration_10">10 s</string>
     <string name="duration_15">15 s</string>
     <string name="duration_30">30 s</string>
     <string name="duration_60">60 s</string>
-    <string name="setting_transition">Transition</string>
-    <string name="transition_smooth">Smooth</string>
-    <string name="transition_instant">Instant</string>
     <string name="setting_frame_rate">Frame rate</string>
+    <string-array name="frame_rate_options">
+        <item>24 FPS</item><item>30 FPS</item><item>45 FPS</item><item>50 FPS</item>
+        <item>60 FPS</item><item>120 FPS</item><item>Max (Unlimited)</item>
+    </string-array>
+    <string name="frame_rate_description">Max removes the app’s FPS limit. Actual speed depends on your display and device. Google Cast targets up to 60 FPS, depending on encoder and receiver support.</string>
     <string name="fps_30">30</string>
     <string name="fps_45">45</string>
     <string name="fps_60">60</string>
     <string name="fps_max">Max</string>
     <string name="setting_quality">Quality</string>
+    <string name="setting_mesh_size">Per-point mesh size X/Y</string>
+    <string name="mesh_size_x">X</string>
+    <string name="mesh_size_y">Y</string>
+    <string name="mesh_size_x_accessibility">Mesh size X, 8 to 300</string>
+    <string name="mesh_size_y_accessibility">Mesh size Y, 8 to 300</string>
+    <string name="mesh_size_description">Controls warp detail independently of Quality. Higher values improve curved and detailed warps but use more CPU time.</string>
+    <string name="setting_screen_dependent_rendering">Screen-Dependent Render Mode</string>
+    <string name="quality_auto">Auto</string>
+    <string name="quality_ultra_low">Ultra low</string>
+    <string-array name="quality_options">
+        <item>Auto</item>
+        <item>Ultra low — 10%</item>
+        <item>Ultra low — 15%</item>
+        <item>Very low — 25%</item>
+        <item>Low — 35%</item>
+        <item>Low — 40%</item>
+        <item>Medium — 50%</item>
+        <item>High — 65%</item>
+        <item>High — 70%</item>
+        <item>High — 75%</item>
+        <item>Very high — 85%</item>
+        <item>Ultra high — 100%</item>
+    </string-array>
+    <string name="quality_very_low">Very low</string>
     <string name="quality_low">Low</string>
     <string name="quality_medium">Medium</string>
     <string name="quality_high">High</string>
+    <string name="quality_very_high">Very high</string>
+    <string name="quality_ultra_high">Ultra high</string>
+    <string name="quality_auto_description">Auto respects your frame-rate setting and adjusts resolution around 50–60 FPS. For limits below 50 FPS, the range scales down to match. Currently using %1$s (%2$d%% of display width and height). Mesh size stays unchanged.</string>
+    <string name="quality_fixed_description">%1$s renders at %2$d%% of display resolution. Mesh size stays unchanged.</string>
     <string name="setting_audio_source">Audio source</string>
-    <string name="audio_source_mic">Mic</string>
-    <string name="audio_source_phone">Phone audio</string>
-    <string name="audio_source_output_mix">No prompt</string>
-    <string name="audio_source_mic_description">Listens through the microphone. Works with any player and picks up the room too.</string>
-    <string name="audio_source_phone_description">What the phone plays, in full detail. Android asks to allow screen capture each time the app starts.</string>
-    <string name="audio_source_output_mix_description">What the phone plays, without the prompt, at lower detail. Some apps come through silent.</string>
-    <string name="audio_source_output_mix_unavailable">This phone doesn\'t allow No prompt audio, so the mic is on.</string>
+    <string name="audio_source_mic">Microphone</string>
+    <string name="audio_source_internal">Internal</string>
+    <string name="audio_source_automatic">Auto</string>
+    <string name="audio_source_automatic_description">Uses Internal audio when available and the microphone during silence. Switches back when playback resumes.</string>
+    <string name="audio_source_automatic_internal">Auto is listening to audio playing on your device.</string>
+    <string name="audio_source_automatic_mic">Auto is using the microphone while Internal audio is silent or unavailable.</string>
+    <string name="audio_source_automatic_unavailable">Auto is waiting for audio input. Check microphone access or start playback.</string>
+    <string name="audio_source_mic_description">Listens through your microphone, picking up music from speakers and sounds around you.</string>
+    <string name="audio_source_internal_description">Captures playback without a capture popup by default. Enable Stereo internal audio below for separate left and right channels. Some apps block capture.</string>
+    <string name="setting_stereo_internal_audio">Stereo internal audio</string>
+    <string name="stereo_internal_audio_description">Optional for Internal and Auto on Android 10 or newer. Android asks for capture consent each session. Uses mono if unavailable or declined. Off by default; microphone stereo is independent.</string>
+    <string name="audio_capture_channel">Playback audio capture</string>
+    <string name="audio_capture_title">MilkDrop is listening to playback</string>
+    <string name="audio_capture_description">Playback audio is driving your visuals.</string>
+    <string name="audio_capture_stop">Use mono capture</string>
+    <string name="audio_source_internal_unavailable">Internal audio is unavailable on this device, so the mic is on.</string>
+    <string name="audio_source_mic_unavailable">The microphone is unavailable. Check that another app isn\'t using it, then try again.</string>
+    <string name="audio_source_permission_required">Allow microphone access in Android settings to enable audio input.</string>
+    <string name="setting_audio_sensitivity">Audio sensitivity</string>
+    <string name="audio_sensitivity_value">Audio sensitivity: %1$.1f×</string>
+    <string name="audio_sensitivity_description">Adjusts the audio level used by the visuals without changing playback volume.</string>
+    <string name="setting_fft_shader_scaling">FFT Shader Scaling</string>
+    <string name="fft_shader_scaling_value">FFT Shader Scaling: %1$.2f</string>
+    <string name="setting_fft_shader_noise_floor">FFT Shader Noise Floor</string>
+    <string name="fft_shader_noise_floor_value">FFT Shader Noise Floor: %1$.2f</string>
 
     <string name="playlist_search_hint">Search presets…</string>
+    <string name="playlist_no_results">No presets found. Try different search words.</string>
+    <string name="playlist_no_favourite_results">No favourite presets found. Try different search words or turn off the favourites filter.</string>
+    <string name="playlist_empty">No presets available.</string>
+    <string name="playlist_no_favourites">No favourite presets yet.</string>
+    <plurals name="playlist_result_count">
+        <item quantity="one">%d preset found</item>
+        <item quantity="other">%d presets found</item>
+    </plurals>
     <string name="playlist_close">Close</string>
     <string name="presets_loading">Loading presets…</string>
+    <string name="visualization_initialization_failed">Unable to start visuals on this device.</string>
     <string name="presets_none_found">No presets found. Add .milk files to MilkDropApp/presets, then reopen the app.</string>
-    <string name="presets_need_access">Allow All files access so the app can read MilkDropApp/presets, then reopen the app.</string>
+    <string name="presets_need_access">Allow All files access so the app can read MilkDropApp/presets.</string>
+    <string name="presets_storage_unavailable">Unable to create the presets or textures folder. Check storage access and available space.</string>
+    <string name="setting_swipe_gestures">Swipe gestures</string>
+    <string name="reset_audio_sensitivity">Reset</string>
+    <string name="reset_audio_sensitivity_description">Reset audio sensitivity to 1.0×</string>
 </resources>

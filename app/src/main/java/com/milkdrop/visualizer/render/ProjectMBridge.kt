@@ -20,9 +20,13 @@ object ProjectMBridge {
     external fun nativeCreate(): Long
     external fun nativeDestroy(handle: Long)
     external fun nativeSetWindowSize(handle: Long, width: Int, height: Int)
+    external fun nativeSetScreenDependentRendering(handle: Long, enabled: Boolean)
+    external fun nativeSetShaderAudioSettings(handle: Long, scaling: Float, noiseFloor: Float)
+    external fun nativeSetPointer(handle: Long, x: Float, y: Float, down: Boolean, pressed: Boolean)
     external fun nativeRenderFrame(handle: Long)
     external fun nativeSetTextureSearchPaths(handle: Long, paths: Array<String>)
     external fun nativeSetPresetDuration(handle: Long, seconds: Double)
+    external fun nativeSetAdditionalRandomTime(handle: Long, seconds: Double)
     external fun nativeSetHardCutEnabled(handle: Long, enabled: Boolean)
     external fun nativeSetHardCutDuration(handle: Long, seconds: Double)
     external fun nativeSetFps(handle: Long, fps: Int)
@@ -34,8 +38,11 @@ object ProjectMBridge {
     external fun nativePlayLast(handle: Long, hardCut: Boolean): Int
     external fun nativeSetPresetLocked(handle: Long, locked: Boolean)
     external fun nativeSetMeshSize(handle: Long, width: Int, height: Int)
-    external fun nativeFeedPcmInt16(handle: Long, samples: ShortArray, frameCount: Int, channels: Int)
+    external fun nativeFeedPcmInt16(handle: Long, samples: ShortArray, frameCount: Int, channels: Int,
+        sampleRateHz: Int, snapshot: Boolean, sensitivity: Float)
     external fun nativeSetThreadAffinity(tids: IntArray, cpus: IntArray): Int
     external fun nativeGetPlaylistPosition(handle: Long): Int
+    external fun nativeGetCurrentPresetPath(handle: Long): String?
+    external fun nativePlayPresetPath(handle: Long, path: String, hardCut: Boolean): Int
     external fun nativeSetPlaylistPosition(handle: Long, position: Int, hardCut: Boolean): Int
 }

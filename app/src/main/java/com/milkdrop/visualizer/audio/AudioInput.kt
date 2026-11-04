@@ -5,9 +5,9 @@ enum class AudioInput {
     /** The microphone: works with anything, picks up the room. */
     MIC,
 
-    /** Playback capture: best quality, needs Android's screen-capture consent on each start. */
-    PHONE_AUDIO,
+    /** Stereo playback capture on Android 10+, with legacy mono output-mix fallback. */
+    INTERNAL,
 
-    /** Visualizer on the output mix: phone audio with no prompt, at lower detail. */
-    OUTPUT_MIX,
+    /** Prefer captured playback, using the microphone while Internal is silent or unavailable. */
+    AUTOMATIC,
 }

@@ -1,40 +1,76 @@
 package com.milkdrop.visualizer.audio
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
-import android.os.IBinder
 import android.util.Log
+import android.os.Build
+import android.media.projection.MediaProjection
 
-/** Owns whichever [AudioSource] is currently active and swaps between them on user toggle. */
+/** Owns the active local audio source and swaps it when the user changes input. */
 class AudioCaptureManager(
-    private val context: Context,
+    context: Context,
     private val pcmSink: PcmSink,
 ) {
-    /** The in-process source (mic or output mix); phone-audio capture runs in [AudioCaptureService]. */
+    private val appContext = context.applicationContext
+    /** All capture sources run in process; Automatic owns its own monitoring worker. */
+    @Volatile
     private var localSource: AudioSource? = null
-    private var serviceConnection: ServiceConnection? = null
-    private var boundService: AudioCaptureService? = null
+    @Volatile private var playbackProjection: MediaProjection? = null
 
-    fun requestInternalCapture(resultCode: Int, data: Intent) {
-        stopLocal()
-        val intent = Intent(context, AudioCaptureService::class.java).apply {
-            putExtra(AudioCaptureService.EXTRA_RESULT_CODE, resultCode)
-            putExtra(AudioCaptureService.EXTRA_RESULT_DATA, data)
+    fun setPlaybackProjection(projection: MediaProjection?) {
+        stopAll()
+        playbackProjection = projection
+    }
+
+    private fun internalSource(sink: PcmSink): AudioSource = object : AudioSource {
+        private var source: AudioSource? = null
+        override val isRunning get() = source?.isRunning == true
+        override fun start() {
+            val token = playbackProjection
+            if (Build.VERSION.SDK_INT >= 29 && token != null) {
+                val playback = PlaybackAudioSource(token, sink)
+                try {
+                    playback.start()
+                    source = playback
+                    return
+                } catch (e: RuntimeException) {
+                    playback.stop()
+                    Log.w(TAG, "Playback PCM unavailable; using legacy output mix", e)
+                }
+            }
+            val legacy = InternalAudioSource(sink)
+            legacy.start()
+            source = legacy
         }
-        context.startForegroundService(intent)
-        bindService()
+        override fun stop() { source?.stop(); source = null }
     }
 
-    fun startMic() {
-        startLocal(MicAudioSource(context, pcmSink))
+    var onAutomaticSourceChanged: (() -> Unit)? = null
+
+    val automaticInput: AudioInput?
+        get() = (localSource as? AutomaticAudioSource)?.activeInput
+
+    fun startAutomatic(): Boolean = try {
+        startLocal(AutomaticAudioSource(pcmSink, { onAutomaticSourceChanged?.invoke() },
+            { MicAudioSource(appContext, it) }, { internalSource(it) }))
+        true
+    } catch (e: RuntimeException) {
+        Log.w(TAG, "Automatic audio unavailable", e)
+        false
     }
+
+    fun startMic(): Boolean =
+        try {
+            startLocal(MicAudioSource(appContext, pcmSink))
+            true
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Microphone capture unavailable", e)
+            false
+        }
 
     /** Returns false if this phone won't give access to the output mix. */
-    fun startOutputMix(): Boolean =
+    fun startInternal(): Boolean =
         try {
-            startLocal(OutputMixAudioSource(pcmSink))
+            startLocal(internalSource(pcmSink))
             true
         } catch (e: RuntimeException) {
             Log.w(TAG, "Output mix capture unavailable", e)
@@ -43,7 +79,6 @@ class AudioCaptureManager(
 
     fun stopAll() {
         stopLocal()
-        stopInternal()
     }
 
     private fun startLocal(source: AudioSource) {
@@ -52,33 +87,9 @@ class AudioCaptureManager(
         localSource = source
     }
 
-    private fun bindService() {
-        val connection = object : ServiceConnection {
-            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                val local = (service as AudioCaptureService.LocalBinder).getService()
-                local.pcmSink = pcmSink
-                boundService = local
-            }
-
-            override fun onServiceDisconnected(name: ComponentName?) {
-                boundService = null
-            }
-        }
-        serviceConnection = connection
-        context.bindService(Intent(context, AudioCaptureService::class.java), connection, Context.BIND_AUTO_CREATE)
-    }
-
     private fun stopLocal() {
         localSource?.stop()
         localSource = null
-    }
-
-    private fun stopInternal() {
-        boundService?.stopCapture()
-        serviceConnection?.let { context.unbindService(it) }
-        serviceConnection = null
-        boundService = null
-        context.stopService(Intent(context, AudioCaptureService::class.java))
     }
 
     private companion object {

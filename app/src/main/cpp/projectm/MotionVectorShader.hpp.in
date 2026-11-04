@@ -1,0 +1,13 @@
+#pragma once
+
+namespace milkdrop {
+
+inline constexpr char MotionVectorVertexShader[] =
+#ifdef USE_GLES
+    "#version 300 es\n"
+#else
+    "#version 330\n"
+#endif
+    R"glsl(@MOTION_VECTOR_VERTEX_SHADER@)glsl";
+
+} // namespace milkdrop

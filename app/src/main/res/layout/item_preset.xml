@@ -7,7 +7,10 @@
     android:gravity="center_vertical"
     android:paddingStart="16dp"
     android:paddingEnd="4dp"
-    android:background="?android:attr/selectableItemBackground">
+    android:focusable="true"
+    android:clickable="true"
+    android:descendantFocusability="beforeDescendants"
+    android:background="@drawable/remote_focus_background">
 
     <!-- Name and folder; dimmed together when the preset is hidden. -->
     <LinearLayout
