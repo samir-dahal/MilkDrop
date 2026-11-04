@@ -1,4 +1,8 @@
-# MilkDrop Visualizer (personal build)
+# MilkDrop Visualizer
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/cc377162-fac9-45eb-9fbb-fb13e9747961" width="250" alt="MilkDrop screenshot" />
+</p>
 
 A personal, sideloaded Android app that renders MilkDrop/projectM-style visuals reacting to
 whatever audio is playing on the phone (YouTube, browser audio, games), using presets and
