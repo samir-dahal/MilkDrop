@@ -1,4 +1,42 @@
 # Compatibility fixes applied after the existing patches to build-directory copies.
+# MilkDrop's fast INI reader first tries the next physical key before falling back
+# to the first occurrence. Numbered code blocks must retain that order: an earlier
+# incomplete per_frame_8 must not hide the real line following per_frame_7.
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PresetFileParser.hpp
+    [=[    ValueMap m_presetValues;]=]
+    [=[    std::vector<std::pair<std::string, std::string>> m_orderedPresetValues;
+    ValueMap m_presetValues;]=]
+    [=[#include <string>]=]
+    [=[#include <string>
+#include <utility>
+#include <vector>]=]
+)
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PresetFileParser.cpp
+    [=[    for (int index{1}; index <= 99999; ++index)]=]
+    [=[    size_t nextLine = m_orderedPresetValues.size();
+    for (int index{1}; index <= 99999; ++index)]=]
+    [=[        if (m_presetValues.find(key) == m_presetValues.end())
+        {
+            break;
+        }
+
+        auto line = m_presetValues.at(key);]=]
+    [=[        if (nextLine >= m_orderedPresetValues.size() ||
+            m_orderedPresetValues[nextLine].first != key)
+        {
+            nextLine = 0;
+            while (nextLine < m_orderedPresetValues.size() &&
+                   m_orderedPresetValues[nextLine].first != key) ++nextLine;
+        }
+        if (nextLine == m_orderedPresetValues.size()) break;
+        auto line = m_orderedPresetValues[nextLine++].second;]=]
+    [=[    // Only add first occurrence to mimic Milkdrop behaviour]=]
+    [=[    // Preserve physical key order for sequential numbered code lookup.
+    if (!varName.empty()) m_orderedPresetValues.emplace_back(varName, value);
+    // Scalar settings still use their first occurrence.
+    // Only add first occurrence to mimic Milkdrop behaviour]=]
+)
+
 # Follow C/HLSL macro token boundaries; removing whitespace merged declarations
 # such as "sampler sampler_manyfish;" into a single invalid identifier.
 patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp

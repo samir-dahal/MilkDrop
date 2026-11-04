@@ -26,6 +26,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Read numbered preset code in file order, following BeatDrop's sequential lookup
+  before falling back to the first matching key. Restore BrainStain-114 outside's
+  bass-driven zoom when an earlier incomplete line duplicates `per_frame_8`.
 - Preserve empty shader defines without consuming the next line, restoring
   Heartfelt's post-processing flags, color treatment, and animation fades.
 - Preserve HLSL signed floating-point remainder for `%` and `fmod()`, correcting
