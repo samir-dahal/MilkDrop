@@ -4,62 +4,12 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ## [Unreleased]
 
-### Changed
+## [2.1.0] - 2026-11-04
 
-- Restore the “Wireless display / Miracast…” shortcut label; Android owns the
-  wireless-display toggle wording in its system Settings screen.
-- Preserve function-like shader macro grouping, allowing Carnival Ride's
-  multi-statement distance-field macros to compile.
-- Prefer 1080p encoding for standard Google Cast fallback and direct MilkDrop Live,
-  retaining lower-resolution encoder fallbacks.
-- Use a quality dropdown with Auto and eleven resolution tiers from 10% to 100%.
-  Auto respects the saved frame-rate limit and adjusts resolution around 50–60 FPS,
-  scaling the range down for intentional limits below 50 FPS.
-- Hold Auto quality through brief FPS dips, require two low-FPS samples to step
-  down below 50 FPS, and allow one step up per second when the measured rate reaches 60 FPS.
-- Add remote Up/Down navigation between the sidebar and Cast, and Left/Right
-  adjustment of focused mesh number fields.
-- Extend audio sensitivity to 25×, with a reset to 1× beside the slider.
-- Add a saved Swipe gestures toggle, enabled by default.
-- Pulse mouseclick on touch/mouse press instead of release; keep mousedown active
-  throughout a hold and preserve short taps between rendered frames.
+Includes everything from 2.0.0 below, which was never released on its own.
 
-### Fixed
-
-- Read numbered preset code in file order, following BeatDrop's sequential lookup
-  before falling back to the first matching key. Restore BrainStain-114 outside's
-  bass-driven zoom when an earlier incomplete line duplicates `per_frame_8`.
-- Preserve empty shader defines without consuming the next line, restoring
-  Heartfelt's post-processing flags, color treatment, and animation fades.
-- Preserve HLSL signed floating-point remainder for `%` and `fmod()`, correcting
-  negative-input masks such as the striped background in Random Trippy Party.
-- Apply fixed and Auto quality resolution scaling while casting, using the
-  negotiated cast size; remove the separate 720p Wireless Display render cap.
-- Accept spaced HLSL directives, comma-separated loop clauses, and correctly
-  bound casts; support boolean saturate and packed float4 array initializers.
-- Initialize shader global arrays as arrays rather than out-of-bounds elements.
-- Preserve the base video-echo passes at zero gamma, restoring legacy presets
-  that rendered black or solid white.
-- Discover `.jfif` JPEG textures, including AVS Swirling's Pattern_047 image.
-- Match BeatDrop's preset beat-variable analysis: zero-padded stereo spectrum,
-  inclusive frequency bands, and raw-band temporal averages. This corrects the
-  audio-driven physics and color ratios in Flexi's recursive shape presets.
-- Pack custom-shape colors, opacity and outlines to 8-bit values before
-  interpolation, matching BeatDrop's truncation and byte wrapping in recursive effects.
-- Preserve shader-specific warp sampler bindings instead of overriding them with
-  the fixed-function `bTexWrap` sampler, restoring polar feedback in
-  `Flexi - trickster interstate`.
-- Accept both inline and hoisted upstream sampler declaration regexes in the
-  compatibility patch.
-- Restore smoothed `*_att` band values so beat-ratio tests can emit custom dots,
-  and match preceding-pass texture addressing for recursive feedback shapes.
-- Translate the HLSL identifier `active` safely for GLSL, fixing the warp shader
-  compile failure in `CaYaDev - Data Corridor`.
-- Preserve named shape image transparency, including the idle M and headphones,
-  while retaining BeatDrop-compatible diffuse alpha for feedback shapes.
-- Use shape opacity independently of feedback texture alpha in legacy textured
-  drawing, matching BeatDrop's diffuse-alpha blend state. This restores presets
-  such as `shifter - swarm` that otherwise fade to black.
+Most of this release was contributed by [OfficialIncubo](https://github.com/OfficialIncubo)
+in [#3](https://github.com/samir-dahal/MilkDrop/pull/3). Thank you!
 
 ### Added
 
@@ -96,8 +46,70 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
   options of Off or up to 5, 10, 15, 20, 25 and 30 seconds; and Transition time choices of
   0.5, 1, 1.5, 1.7 (default), 2 and 5 seconds. Preserve existing saved preset durations.
 
+### Changed
+
+- Restore the “Wireless display / Miracast…” shortcut label; Android owns the
+  wireless-display toggle wording in its system Settings screen.
+- Preserve function-like shader macro grouping, allowing Carnival Ride's
+  multi-statement distance-field macros to compile.
+- Prefer 1080p encoding for standard Google Cast fallback and direct MilkDrop Live,
+  retaining lower-resolution encoder fallbacks.
+- Use a quality dropdown with Auto and eleven resolution tiers from 10% to 100%.
+  Auto respects the saved frame-rate limit and adjusts resolution around 50–60 FPS,
+  scaling the range down for intentional limits below 50 FPS.
+- Hold Auto quality through brief FPS dips, require two low-FPS samples to step
+  down below 50 FPS, and allow one step up per second when the measured rate reaches 60 FPS.
+- Add remote Up/Down navigation between the sidebar and Cast, and Left/Right
+  adjustment of focused mesh number fields.
+- Extend audio sensitivity to 25×, with a reset to 1× beside the slider.
+- Add a saved Swipe gestures toggle, enabled by default.
+- Pulse mouseclick on touch/mouse press instead of release; keep mousedown active
+  throughout a hold and preserve short taps between rendered frames.
+- Allow visualization swipes with the control bar shown or hidden, preserving overlay interactions.
+- Use the sidebar's translucent background for Settings and the preset list.
+- Restore the sidebar after closing or selecting from the preset list when opened with its
+  List button. Swipe up and remote Up return to hidden controls.
+- Silence taps and swipe shortcuts on the visualization, while preserving normal UI sounds.
+- Make preset-list header focus move between Search, Favourites and Close with a remote;
+  retain search cursor movement while the on-screen keyboard is open.
+- Swipe right for the previous preset and left for the next while the UI is hidden.
+- Order audio source choices as Auto, Microphone, then Internal.
+- Keep Shuffle white when on and dimmed white when off, with a transparent background
+  and a white outline for remote focus.
+
 ### Fixed
 
+- Preserve empty shader defines without consuming the next line, restoring
+  Heartfelt's post-processing flags, color treatment, and animation fades.
+- Preserve HLSL signed floating-point remainder for `%` and `fmod()`, correcting
+  negative-input masks such as the striped background in Random Trippy Party.
+- Apply fixed and Auto quality resolution scaling while casting, using the
+  negotiated cast size; remove the separate 720p Wireless Display render cap.
+- Accept spaced HLSL directives, comma-separated loop clauses, and correctly
+  bound casts; support boolean saturate and packed float4 array initializers.
+- Initialize shader global arrays as arrays rather than out-of-bounds elements.
+- Preserve the base video-echo passes at zero gamma, restoring legacy presets
+  that rendered black or solid white.
+- Discover `.jfif` JPEG textures, including AVS Swirling's Pattern_047 image.
+- Match BeatDrop's preset beat-variable analysis: zero-padded stereo spectrum,
+  inclusive frequency bands, and raw-band temporal averages. This corrects the
+  audio-driven physics and color ratios in Flexi's recursive shape presets.
+- Pack custom-shape colors, opacity and outlines to 8-bit values before
+  interpolation, matching BeatDrop's truncation and byte wrapping in recursive effects.
+- Preserve shader-specific warp sampler bindings instead of overriding them with
+  the fixed-function `bTexWrap` sampler, restoring polar feedback in
+  `Flexi - trickster interstate`.
+- Accept both inline and hoisted upstream sampler declaration regexes in the
+  compatibility patch.
+- Restore smoothed `*_att` band values so beat-ratio tests can emit custom dots,
+  and match preceding-pass texture addressing for recursive feedback shapes.
+- Translate the HLSL identifier `active` safely for GLSL, fixing the warp shader
+  compile failure in `CaYaDev - Data Corridor`.
+- Preserve named shape image transparency, including the idle M and headphones,
+  while retaining BeatDrop-compatible diffuse alpha for feedback shapes.
+- Use shape opacity independently of feedback texture alpha in legacy textured
+  drawing, matching BeatDrop's diffuse-alpha blend state. This restores presets
+  such as `shifter - swarm` that otherwise fade to black.
 - Support shader all/any reductions for Domains and mipmapped disk textures for
   Heartfelt’s focus blur. Retain sampler wrap/filter modes and owned GPU lifetimes.
 - Match BeatDrop’s actual previous-feedback blur input, correcting the earlier
@@ -162,20 +174,6 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 - Restart the switching countdown when duration or random time changes. Auto-advance off
   resets and holds the countdown at zero; enabling it starts again. Preserve preset animation
   and blends in progress, and discard stale search results after editing or closing the list.
-
-### Changed
-
-- Allow visualization swipes with the control bar shown or hidden, preserving overlay interactions.
-- Use the sidebar's translucent background for Settings and the preset list.
-- Restore the sidebar after closing or selecting from the preset list when opened with its
-  List button. Swipe up and remote Up return to hidden controls.
-- Silence taps and swipe shortcuts on the visualization, while preserving normal UI sounds.
-- Make preset-list header focus move between Search, Favourites and Close with a remote;
-  retain search cursor movement while the on-screen keyboard is open.
-- Swipe right for the previous preset and left for the next while the UI is hidden.
-- Order audio source choices as Auto, Microphone, then Internal.
-- Keep Shuffle white when on and dimmed white when off, with a transparent background
-  and a white outline for remote focus.
 
 ## [2.0.0] - 2026-10-17
 
@@ -258,4 +256,6 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 First build: projectM 4.1.7 visualizer with internal-audio and microphone capture, preset list
 with search, and tuned frame pacing for the Galaxy F15.
 
+[Unreleased]: https://github.com/samir-dahal/MilkDrop/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/samir-dahal/MilkDrop/compare/v1.1.0...v2.1.0
 [1.1.0]: https://github.com/samir-dahal/MilkDrop/compare/5c195a4...v1.1.0

@@ -1,4 +1,8 @@
-# MilkDrop Visualizer (personal build)
+# MilkDrop Visualizer
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/cc377162-fac9-45eb-9fbb-fb13e9747961" width="250" alt="MilkDrop screenshot" />
+</p>
 
 A personal, sideloaded Android app that renders MilkDrop/projectM-style visuals reacting to
 whatever audio is playing on the phone (YouTube, browser audio, games), using presets and
@@ -29,12 +33,12 @@ git -C native/projectm submodule update --init --recursive
 
 For the optimized, installable release APK, see [release build instructions](Docs/RELEASE_BUILD.md).
 
-GitHub Actions builds the release APK on pushes, pull requests, and manual runs of **Build
-Android APK**, fetching the latest projectM `master` on each run and logging the commit used.
-After a successful run, download **MilkDrop-build** from the run's **Artifacts**
-section and extract `MilkDrop-build.apk`. CI uses the project's debug signing configuration;
-each fresh runner creates its own key, so installing over a local build or an earlier CI build
-may require uninstalling the existing app first.
+Ready-built APKs are on the [Releases page](https://github.com/samir-dahal/MilkDrop/releases), each with its changelog and setup
+instructions. GitHub Actions builds and publishes one whenever a version tag such as `v2.1.0` is
+pushed (see [Publishing a release](Docs/RELEASE_BUILD.md#publishing-a-release)), fetching the
+latest projectM `master` and logging the commit used. Releases use the project's debug signing
+configuration; each fresh runner creates its own key, so installing over a local build or an
+earlier release may require uninstalling the existing app first.
 
 ## Audio reaction
 
@@ -333,6 +337,16 @@ adb logcat -d > milkdrop-logcat.txt
 Include the log, phone model, Android version, and selected audio source when reporting a crash.
 Since CI fetches upstream `master` on every run, include the projectM commit shown in the CI log
 as well. This helps distinguish a native startup failure from an audio or preset loading issue.
+
+## Credits
+
+- [OfficialIncubo](https://github.com/OfficialIncubo) — contributed most of what came after 1.1.0
+  ([#3](https://github.com/samir-dahal/MilkDrop/pull/3)): BeatDrop-compatible audio analysis and
+  rendering, many shader and preset compatibility fixes, visual casting (Google Cast, MilkDrop
+  Live and Miracast), Android TV and remote support, touch swipe shortcuts, adaptive quality and
+  the extra settings, and the GitHub Actions build.
+- [projectM](https://github.com/projectM-visualizer/projectm) — the visualizer engine this app is
+  built on.
 
 ## Licensing note
 
