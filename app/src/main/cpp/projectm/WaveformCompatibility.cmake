@@ -19,8 +19,15 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/Waveform.cpp
     const float volume = m_presetState.audioData.vol;
     if (span != 0.0f)
         m_tempAlpha *= (volume - m_presetState.modWaveAlphaStart) / span;
-    else if (volume <= m_presetState.modWaveAlphaStart)
-        m_tempAlpha = 0.0f; // Defined step for equal thresholds, including 0/0.]=]
+    else
+    {
+        // The legacy division by zero produces signed infinity, then clamps
+        // to 0/1. Preserve that saturation, even for a faint wave_a, without
+        // sending NaN to the GPU at the exact threshold or zero amplitude.
+        const float delta = volume - m_presetState.modWaveAlphaStart;
+        m_tempAlpha = ((m_tempAlpha > 0.0f && delta > 0.0f) ||
+                       (m_tempAlpha < 0.0f && delta < 0.0f)) ? 1.0f : 0.0f;
+    }]=]
 )
 
 # Read the evaluated settings on every draw, and rebuild the math implementation

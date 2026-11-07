@@ -6,6 +6,15 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Include the circular waveform's closing vertex in smoothing, matching
+  MilkDrop's complete loop instead of omitting the last segment.
+
+- Restore full waveform opacity above equal volume thresholds, matching
+  BeatDrop saturation instead of retaining a faint base alpha. This restores
+  circular waves and their feedback detail in Flexi presets such as Julia Burst,
+  Dawn Has Broken and The Way It's Meant to Be Played. Keep exact-threshold and
+  zero-alpha cases finite, without changing normal or reversed thresholds.
+
 - Offer Close and Switch to Live Receiver on devices without OpenGL ES 3.
   Receiver-only mode waits for a phone/tablet, returns to waiting after casting
   stops, and exits with OK/Back only while waiting. Video decoding does not
