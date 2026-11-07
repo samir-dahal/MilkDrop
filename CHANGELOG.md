@@ -79,6 +79,11 @@ in [#3](https://github.com/samir-dahal/MilkDrop/pull/3). Thank you!
 
 ### Fixed
 
+- Parse parenthesized HLSL constructors through the expression path, preserving
+  swizzles and indexing. Restore Altar to a Shadow Eminence's composite shader.
+- Use BeatDrop-style smoothed frame timing for beat-variable attack/release and
+  reference averages, reducing envelope changes caused by uneven frames and pauses.
+  Preserve the existing frequency bands and FFT mapping.
 - Preserve empty shader defines without consuming the next line, restoring
   Heartfelt's post-processing flags, color treatment, and animation fades.
 - Preserve HLSL signed floating-point remainder for `%` and `fmod()`, correcting

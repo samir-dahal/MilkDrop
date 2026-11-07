@@ -1,3 +1,28 @@
+# Parenthesized constructors are expressions, not C-style casts. Parse them via
+# the regular expression path so postfix swizzles and indexing bind after ')'.
+patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
+    [=[        // Check for a casting operator.
+        HLSLType type;]=]
+    [=[        // Check for a casting operator.
+        const char* expressionStart = m_tokenizer.getLastPos(false);
+        HLSLType type;]=]
+    [=[                needsExpressionEndChar = expressionEndChar;
+                return ParsePartialConstructor(expression, type.baseType, type.typeName);
+            }
+            HLSLCastingExpression* castingExpression]=]
+    [=[                m_tokenizer.ReturnToPos(expressionStart);
+                m_tokenizer.Next();
+            }
+            else
+            {
+            HLSLCastingExpression* castingExpression]=]
+    [=[            return Expect(')') && ParseExpression(castingExpression->expression);
+        }]=]
+    [=[            return Expect(')') && ParseExpression(castingExpression->expression);
+            }
+        }]=]
+)
+
 # Function-like macros substitute tokens, including multiple statements. Do not
 # invent parentheses around their bodies; authors supply grouping when needed.
 patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
