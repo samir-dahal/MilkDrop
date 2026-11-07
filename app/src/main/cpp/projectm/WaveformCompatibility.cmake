@@ -1,3 +1,28 @@
+# Preserve MilkDrop's volume-opacity formula, including descending thresholds.
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/Waveform.cpp
+    [=[    if (m_presetState.audioData.vol <= m_presetState.modWaveAlphaStart)
+    {
+        m_tempAlpha = 0.0;
+    }
+    else if (m_presetState.audioData.vol >= m_presetState.modWaveAlphaEnd)
+    {
+        m_tempAlpha = static_cast<float>(*presetPerFrameContext.wave_a);
+    }
+    else
+    {
+        m_tempAlpha = static_cast<float>(*presetPerFrameContext.wave_a) * ((m_presetState.audioData.vol - m_presetState.modWaveAlphaStart) / (m_presetState.modWaveAlphaEnd - m_presetState.modWaveAlphaStart));
+    }]=]
+    [=[    (void)presetPerFrameContext;
+    // MilkDrop multiplies before clamping the completed alpha. Reversed
+    // thresholds intentionally fade OUT with volume; wave_a can exceed one.
+    const float span = m_presetState.modWaveAlphaEnd - m_presetState.modWaveAlphaStart;
+    const float volume = m_presetState.audioData.vol;
+    if (span != 0.0f)
+        m_tempAlpha *= (volume - m_presetState.modWaveAlphaStart) / span;
+    else if (volume <= m_presetState.modWaveAlphaStart)
+        m_tempAlpha = 0.0f; // Defined step for equal thresholds, including 0/0.]=]
+)
+
 # Read the evaluated settings on every draw, and rebuild the math implementation
 # only when the selected mode changes. Keep ownership in the preset's unique_ptr.
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/Waveform.cpp

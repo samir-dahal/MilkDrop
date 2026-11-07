@@ -4,6 +4,13 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ## [Unreleased]
 
+### Fixed
+
+- Restore visible waveforms in LuxXx's "It Speaks Thru Me i (twitchy mix)" and
+  Pithlit & Illusion's "Speaker in the Night". Match MilkDrop's volume-opacity
+  calculation for descending thresholds and alpha values above one, while
+  preserving waveform-mode opacity scaling.
+
 ## [2.1.0] - 2026-11-04
 
 Includes everything from 2.0.0 below, which was never released on its own.
