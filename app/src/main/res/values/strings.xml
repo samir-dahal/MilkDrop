@@ -160,4 +160,5 @@
     <string name="setting_swipe_gestures">Swipe gestures</string>
     <string name="reset_audio_sensitivity">Reset</string>
     <string name="reset_audio_sensitivity_description">Reset audio sensitivity to 1.0×</string>
+    <string name="slider_remote_hint">Remote: Left/Right adjusts the slider. Press OK to reach the number field or Reset; Up/Down moves through settings.</string>
 </resources>

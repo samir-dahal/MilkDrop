@@ -127,7 +127,6 @@
             <TextView
                 android:id="@+id/btnShuffle"
                 style="@style/ControlButton"
-                android:background="@drawable/shuffle_button_background"
                 app:drawableTopCompat="@drawable/ic_shuffle"
                 android:text="@string/btn_shuffle"
                 android:textColor="@color/toggle_content"
@@ -323,6 +322,13 @@
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="@string/frame_rate_description" android:textSize="13sp"
                     android:textColor="@color/overlay_content_secondary" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/slider_remote_hint"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
 
                 <TextView
                     style="@style/SettingLabel"

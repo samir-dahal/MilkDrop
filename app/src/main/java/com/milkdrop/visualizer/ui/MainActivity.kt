@@ -158,6 +158,11 @@ class MainActivity : AppCompatActivity() {
 
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            requestStorageAccessThenStartAudio()
+        }
+
+    private val storageAccessLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             startPersistedAudioSource()
         }
 
@@ -899,6 +904,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupControlBar() {
+        listOf(binding.btnPrevious, binding.btnNext, binding.btnShuffle, binding.btnFavourite,
+            binding.btnPlaylist, binding.btnSettings, binding.btnMediaPrevious,
+            binding.btnMediaPlayPause, binding.btnMediaNext).forEach {
+            it.setBackgroundResource(if (isTelevision()) R.drawable.remote_focus_background else android.R.color.transparent)
+        }
         binding.btnNext.setOnClickListener {
             surfaceView.milkDropRenderer.requestNavigation(Navigation.Next)
         }
@@ -949,6 +959,16 @@ class MainActivity : AppCompatActivity() {
             binding.sliderAudioSensitivity, binding.sliderFftShaderScaling, binding.sliderFftShaderNoiseFloor).forEach {
             it.setBackgroundResource(R.drawable.remote_focus_background)
         }
+        setupSliderCompanion(binding.sliderMeshSizeX, binding.inputMeshSizeX)
+        setupSliderCompanion(binding.sliderMeshSizeY, binding.inputMeshSizeY)
+        setupSliderCompanion(binding.sliderAudioSensitivity, binding.resetAudioSensitivity)
+        binding.sliderMeshSizeX.nextFocusDownId = R.id.sliderMeshSizeY
+        binding.inputMeshSizeX.nextFocusDownId = R.id.inputMeshSizeY
+        binding.sliderMeshSizeY.nextFocusUpId = R.id.sliderMeshSizeX
+        binding.inputMeshSizeY.nextFocusUpId = R.id.inputMeshSizeX
+        binding.inputMeshSizeY.nextFocusDownId = R.id.spinnerQuality
+        binding.resetAudioSensitivity.nextFocusDownId = R.id.sliderFftShaderScaling
+        binding.resetAudioSensitivity.nextFocusUpId = R.id.sliderAudioSensitivity
         binding.btnCloseSettings.setOnClickListener { closeSettingsSheet(showControls = true) }
         binding.switchPresetNameDuringTransitions.setOnCheckedChangeListener { _, checked ->
             if (updatingControls) return@setOnCheckedChangeListener
@@ -1082,28 +1102,37 @@ class MainActivity : AppCompatActivity() {
         updatingControls = wasUpdating
     }
 
+    /** OK leaves slider adjustment for its adjacent value/reset control. */
+    private fun setupSliderCompanion(slider: SeekBar, companion: View) {
+        slider.nextFocusRightId = companion.id
+        companion.nextFocusLeftId = slider.id
+        slider.setOnKeyListener { _, key, event ->
+            if (key in setOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    consumedRemoteKeys.add(key)
+                    companion.requestFocus()
+                }
+                true
+            } else false
+        }
+    }
+
     private fun setupMeshSizeInput(input: EditText, apply: (Int) -> Unit) {
         fun commit() {
             val value = input.text.toString().toIntOrNull()?.coerceIn(MESH_SIZE_MIN, MESH_SIZE_MAX)
             apply(value ?: if (input === binding.inputMeshSizeX) settings.meshColumns else settings.meshRows)
         }
         input.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) commit() }
-        // Up/down remain available for moving through settings. Left/right adjust the
-        // focused value directly without requiring a remote's on-screen keyboard.
+        // Numeric entry remains available through OK/the on-screen keyboard.
+        // Arrows move between the field and slider instead of trapping focus.
         input.setOnKeyListener { _, keyCode, event ->
-            if (keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) {
-                false
-            } else {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
                 if (event.action == KeyEvent.ACTION_DOWN) {
-                    val current = input.text.toString().toIntOrNull()
-                        ?: if (input === binding.inputMeshSizeX) settings.meshColumns else settings.meshRows
-                    val next = (current + if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1)
-                        .coerceIn(MESH_SIZE_MIN, MESH_SIZE_MAX)
-                    input.setText(next.toString())
-                    apply(next)
+                    commit()
+                    (if (input === binding.inputMeshSizeX) binding.sliderMeshSizeX else binding.sliderMeshSizeY).requestFocus()
                 }
                 true
-            }
+            } else false
         }
         input.setOnEditorActionListener { _, actionId, _ ->
             if (actionId != EditorInfo.IME_ACTION_DONE) return@setOnEditorActionListener false
@@ -1440,20 +1469,34 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess()) {
-            startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:$packageName"),
-                )
-            )
-        }
-
         if (needed.isNotEmpty()) {
             permissionsLauncher.launch(needed.toTypedArray())
         } else {
-            startPersistedAudioSource()
+            requestStorageAccessThenStartAudio()
         }
+    }
+
+    private fun requestStorageAccessThenStartAudio() {
+        if (isDestroyed) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess()) {
+            // TV firmware may omit one or both special-access screens. Never let
+            // that abort startup or launch it on top of a runtime permission dialog.
+            val destinations = listOf(
+                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")),
+                Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")),
+            )
+            for (destination in destinations) {
+                try {
+                    storageAccessLauncher.launch(destination)
+                    return
+                } catch (e: RuntimeException) {
+                    Log.i(TAG, "Storage permission screen unavailable: ${destination.action}", e)
+                }
+            }
+            Toast.makeText(this, R.string.presets_storage_unavailable, Toast.LENGTH_LONG).show()
+        }
+        startPersistedAudioSource()
     }
 
     private fun startPersistedAudioSource() = startAudioInput(settings.audioInput)

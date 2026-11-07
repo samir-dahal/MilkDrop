@@ -6,6 +6,15 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Use the supplied TV launcher banner, keep mobile sidebar buttons transparent,
+  and show a consistent filled focus border on TV, including Shuffle.
+- Request startup permissions sequentially and fall back safely when a TV does
+  not provide the app-specific storage permission screen.
+- Let remote OK move from mesh/audio sliders to numeric entry or Reset, with
+  explicit return navigation and no accidental activation on key release.
+- Adapt direct Live Receiver encoder bitrate to congestion and recover detail
+  gradually, without accumulating a video backlog or changing resolution/FPS.
+
 - Restore visible waveforms in LuxXx's "It Speaks Thru Me i (twitchy mix)" and
   Pithlit & Illusion's "Speaker in the Night". Match MilkDrop's volume-opacity
   calculation for descending thresholds and alpha values above one, while

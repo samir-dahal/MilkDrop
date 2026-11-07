@@ -116,8 +116,24 @@ internal class VisualStreamEncoder(
             codec.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0) })
         }
         try {
+            val bitrateRange = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities!!.bitrateRange
+            val nominalBitrate = bitrateRange.clamp(CastEncodingPolicy.bitRate(CastEncodingPolicy.Mode(width, height, framesPerSecond)))
+            val bitrate = LiveBitrateController(nominalBitrate, bitrateRange.clamp((nominalBitrate / 4).coerceAtLeast(1)))
+            var bitrateUpdatesSupported = true
             Process.setThreadPriority(Process.THREAD_PRIORITY_DISPLAY)
             while (running.get()) {
+                if (direct != null && bitrateUpdatesSupported) {
+                    val newRate = bitrate.update(System.nanoTime(), direct.consumeCongestion())
+                    if (newRate != null) {
+                        // Some vendor encoders reject live changes: keep the stream running.
+                        try {
+                            codec.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, newRate) })
+                        } catch (e: RuntimeException) {
+                            bitrateUpdatesSupported = false
+                            Log.i("VisualStreamEncoder", "Live bitrate adjustment unavailable", e)
+                        }
+                    }
+                }
                 if (syncRequested.getAndSet(false)) requestKeyFrame()
                 val index = codec.dequeueOutputBuffer(info, 20_000)
                 if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
