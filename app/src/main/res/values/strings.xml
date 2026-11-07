@@ -29,7 +29,7 @@
     <string name="shuffle_enabled">Shuffle on</string>
     <string name="shuffle_disabled">Shuffle off</string>
     <string name="graphics_unsupported_title">Graphics support required</string>
-    <string name="graphics_unsupported_message">This device reports %1$s, but MilkDrop needs a working OpenGL ES 3.0 graphics context. OpenGL ES 2.0 devices cannot run this projectM renderer. Audio and storage permissions cannot enable the missing graphics features. You can connect a compatible Android TV device to a projector by HDMI.</string>
+    <string name="graphics_unsupported_message">This device reports %1$s, but MilkDrop needs a working OpenGL ES 3.0 graphics context. OpenGL ES 2.0 devices cannot run this projectM renderer. Audio and storage permissions cannot enable the missing graphics features. Choose Live Receiver to receive visuals rendered on another device instead.</string>
     <string name="close_app">Close app</string>
     <string name="app_name">MilkDrop</string>
 
@@ -161,4 +161,7 @@
     <string name="reset_audio_sensitivity">Reset</string>
     <string name="reset_audio_sensitivity_description">Reset audio sensitivity to 1.0×</string>
     <string name="slider_remote_hint">Remote: Left/Right adjusts the slider. Press OK to reach the number field or Reset; Up/Down moves through settings.</string>
+    <string name="switch_live_receiver">Switch to Live Receiver</string>
+    <string name="receiver_only_waiting">Waiting for a device to connect\nOpen MilkDrop on your phone or tablet and select this device (MilkDrop Live) from Cast.\n\nPress OK or Back to close.</string>
+    <string name="receiver_only_connecting">Connecting to %1$s…</string>
 </resources>

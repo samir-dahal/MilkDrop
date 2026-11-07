@@ -222,6 +222,10 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_unsupported_graphics)
             findViewById<TextView>(R.id.graphicsUnsupportedMessage).text =
                 getString(R.string.graphics_unsupported_message, graphics.version)
+            findViewById<View>(R.id.btnLiveReceiverUnsupported).setOnClickListener {
+                startActivity(Intent(this, LiveReceiverActivity::class.java))
+                finish()
+            }
             findViewById<View>(R.id.btnExitUnsupported).apply {
                 setOnClickListener { finish() }
                 requestFocus()

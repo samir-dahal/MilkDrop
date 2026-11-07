@@ -6,6 +6,11 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Offer Close and Switch to Live Receiver on devices without OpenGL ES 3.
+  Receiver-only mode waits for a phone/tablet, returns to waiting after casting
+  stops, and exits with OK/Back only while waiting. Video decoding does not
+  initialize projectM or require audio/storage permissions.
+
 - Use the supplied TV launcher banner, keep mobile sidebar buttons transparent,
   and show a consistent filled focus border on TV, including Shuffle.
 - Request startup permissions sequentially and fall back safely when a TV does
