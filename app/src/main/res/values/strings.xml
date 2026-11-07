@@ -29,7 +29,7 @@
     <string name="shuffle_enabled">Shuffle on</string>
     <string name="shuffle_disabled">Shuffle off</string>
     <string name="graphics_unsupported_title">Graphics support required</string>
-    <string name="graphics_unsupported_message">This device reports %1$s, but MilkDrop needs a working OpenGL ES 3.0 graphics context. OpenGL ES 2.0 devices cannot run this projectM renderer. Audio and storage permissions cannot enable the missing graphics features. Choose Live Receiver to receive visuals rendered on another device instead.</string>
+    <string name="graphics_unsupported_message">This device reports %1$s, but MilkDrop needs a working OpenGL ES 3.0 graphics context. OpenGL ES 2.0 devices cannot run this projectM renderer. Audio and storage permissions cannot enable the missing graphics features. Choose Live Receiver to receive visuals rendered on another device instead or you can connect a compatible Android TV device to a projector by HDMI..</string>
     <string name="close_app">Close app</string>
     <string name="app_name">MilkDrop</string>
 
