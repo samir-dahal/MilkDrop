@@ -6,6 +6,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Restore mouse-hover and touch-press highlights on sidebar and media buttons,
+  keeping idle backgrounds transparent and remote focus visibly bordered.
+
 - Include the circular waveform's closing vertex in smoothing, matching
   MilkDrop's complete loop instead of omitting the last segment.
 

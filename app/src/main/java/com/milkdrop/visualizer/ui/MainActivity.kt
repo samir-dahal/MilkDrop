@@ -911,7 +911,7 @@ class MainActivity : AppCompatActivity() {
         listOf(binding.btnPrevious, binding.btnNext, binding.btnShuffle, binding.btnFavourite,
             binding.btnPlaylist, binding.btnSettings, binding.btnMediaPrevious,
             binding.btnMediaPlayPause, binding.btnMediaNext).forEach {
-            it.setBackgroundResource(if (isTelevision()) R.drawable.remote_focus_background else android.R.color.transparent)
+            it.setBackgroundResource(R.drawable.sidebar_button_background)
         }
         binding.btnNext.setOnClickListener {
             surfaceView.milkDropRenderer.requestNavigation(Navigation.Next)
