@@ -926,6 +926,8 @@ class MainActivity : AppCompatActivity() {
         binding.btnFavourite.setOnClickListener {
             val path = currentPresetPath ?: return@setOnClickListener
             ratings.toggleFavourite(path)
+            presetAdapter.refreshRatings(path)
+            if (favouritesOnly) scheduleSearch()
             updateFavouriteButton()
         }
         binding.btnMediaPrevious.setOnClickListener { dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }
@@ -1225,9 +1227,12 @@ class MainActivity : AppCompatActivity() {
     private fun setupPlaylistPanel() {
         binding.playlistRecyclerView.layoutManager = LinearLayoutManager(this)
         presetAdapter = PresetListAdapter(
-            ratings,
+            ratings = { ratings },
+            onHeaderFocus = { search ->
+                if (search) binding.playlistSearch.requestFocus() else binding.btnClosePlaylist.requestFocus()
+            },
             onPresetClick = { entry ->
-                if (entry.playlistIndex != null) {
+                if (!ratings.isHidden(entry.path)) {
                     surfaceView.milkDropRenderer.requestNavigation(Navigation.JumpTo(entry.path))
                 }
             },
@@ -1251,6 +1256,15 @@ class MainActivity : AppCompatActivity() {
         }
         updateFavouritesOnlyButton()
         binding.playlistSearch.doAfterTextChanged { scheduleSearch() }
+        binding.btnClosePlaylist.setOnKeyListener { _, key, event ->
+            if (key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    presetAdapter.focusLastRow(binding.playlistRecyclerView, 0)
+                    consumedRemoteKeys.add(key)
+                }
+                true
+            } else false
+        }
         binding.playlistSearch.setOnKeyListener { _, key, event ->
             val keyboardVisible = ViewCompat.getRootWindowInsets(binding.playlistSearch)
                 ?.isVisible(WindowInsetsCompat.Type.ime()) == true
@@ -1258,6 +1272,8 @@ class MainActivity : AppCompatActivity() {
                 (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)) {
                 // EditText otherwise consumes these arrows for its cursor, trapping header focus.
                 if (key == KeyEvent.KEYCODE_DPAD_RIGHT) binding.btnFavouritesOnly.requestFocus()
+                else presetAdapter.focusLastRow(binding.playlistRecyclerView, 2)
+                consumedRemoteKeys.add(key)
                 true
             } else false
         }

@@ -6,6 +6,11 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Keep Favourite and Hide icon states independent of the playing-row highlight,
+  use current ratings after permission changes, and retain the open list/focus
+  when toggling presets. Add explicit remote row/header traversal and preserve
+  the focused button column when moving between preset rows.
+
 - Restore the playing preset's row highlight and update it live without moving
   the list's scroll position or focus. Keep the preset list open after selection.
 
