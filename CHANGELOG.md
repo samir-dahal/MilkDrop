@@ -6,6 +6,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Restore the playing preset's row highlight and update it live without moving
+  the list's scroll position or focus. Keep the preset list open after selection.
+
 - Restore mouse-hover and touch-press highlights on sidebar and media buttons,
   keeping idle backgrounds transparent and remote focus visibly bordered.
 

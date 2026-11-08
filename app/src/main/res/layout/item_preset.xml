@@ -10,7 +10,7 @@
     android:focusable="true"
     android:clickable="true"
     android:descendantFocusability="beforeDescendants"
-    android:background="@drawable/remote_focus_background">
+    android:background="@drawable/preset_row_background">
 
     <!-- Name and folder; dimmed together when the preset is hidden. -->
     <LinearLayout

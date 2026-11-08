@@ -451,6 +451,7 @@ class MainActivity : AppCompatActivity() {
             settings.lastPresetPath = path
             runOnUiThread {
                 currentPresetPath = path
+                if (::presetAdapter.isInitialized) presetAdapter.updateCurrent(path)
                 updateFavouriteButton()
                 showPresetName(File(path).nameWithoutExtension)
             }
@@ -1229,7 +1230,6 @@ class MainActivity : AppCompatActivity() {
                 if (entry.playlistIndex != null) {
                     surfaceView.milkDropRenderer.requestNavigation(Navigation.JumpTo(entry.path))
                 }
-                closePlaylistPanel()
             },
             onFavouriteToggled = { entry ->
                 ratings.toggleFavourite(entry.path)

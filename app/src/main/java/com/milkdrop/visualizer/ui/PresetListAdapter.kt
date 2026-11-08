@@ -33,6 +33,24 @@ class PresetListAdapter(
         notifyDataSetChanged()
     }
 
+    /** Playback changes highlight only; never replace the list, scroll or move focus. */
+    fun updateCurrent(highlightPath: String?) {
+        if (highlightPath == currentPath) return
+        val previous = entries.indexOfFirst { it.path == currentPath }
+        currentPath = highlightPath
+        val current = entries.indexOfFirst { it.path == currentPath }
+        if (previous >= 0) notifyItemChanged(previous, CURRENT_PRESET_PAYLOAD)
+        if (current >= 0) notifyItemChanged(current, CURRENT_PRESET_PAYLOAD)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty() && payloads.all { it === CURRENT_PRESET_PAYLOAD }) {
+            holder.itemView.isActivated = entries[position].path == currentPath
+        } else {
+            onBindViewHolder(holder, position)
+        }
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_preset, parent, false)
         return ViewHolder(view)
@@ -76,5 +94,6 @@ class PresetListAdapter(
 
     private companion object {
         const val HIDDEN_ALPHA = 0.4f
+        val CURRENT_PRESET_PAYLOAD = Any()
     }
 }
