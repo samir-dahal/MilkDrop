@@ -2,6 +2,7 @@ package com.milkdrop.visualizer.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.drawable.Animatable
@@ -237,6 +238,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         settings = AppSettings(this)
+        applyOrientationMode()
         // Two small files, read once here; writes go to the background executor.
         hadStorageAccess = hasAllFilesAccess()
         ratingsStore = PresetRatingsStore(
@@ -952,7 +954,27 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun applyOrientationMode() {
+        if (isTelevision()) return
+        requestedOrientation = when (settings.orientationMode) {
+            1 -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            2 -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+            else -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+        }
+    }
+
     private fun setupSettingsSheet() {
+        configureTimingSpinner(binding.spinnerOrientation, R.array.orientation_options, settings.orientationMode)
+        binding.spinnerOrientation.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (settings.orientationMode == position) return
+                settings.orientationMode = position
+                applyOrientationMode()
+            }
+        }
+        binding.spinnerOrientation.isEnabled = !isTelevision()
+
         binding.btnWirelessDisplay.isVisible = WirelessDisplaySettings.available(this)
         binding.wirelessDisplayDescription.isVisible = binding.btnWirelessDisplay.isVisible
         binding.btnWirelessDisplay.setOnClickListener {

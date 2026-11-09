@@ -248,6 +248,8 @@ Preset equation variables `aspectx` and `aspecty` also become `1.0` in screen-de
   60 FPS permits an upgrade. Lower intentional frame-rate limits use a proportional band.
 - **Swipe gestures** — enable or disable the visualization's swipe shortcuts. Pointer
   variables continue working when shortcuts are disabled.
+- **Screen orientation** — follow system rotation, rotate in all directions even with
+  rotation lock enabled, or lock upside-down portrait. TVs retain their display orientation.
 - **Screen-Dependent Render Mode** — fit custom waves, shapes, built-in waves, and per-vertex
   motion to full-screen coordinates, following BeatDrop's screen-dependent convention. Off by
   default for standard projectM rendering. Applies immediately and is saved across launches.

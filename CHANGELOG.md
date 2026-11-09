@@ -4,7 +4,18 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ## [Unreleased]
 
+### Added
+
+- Saved screen-orientation choices, including upside-down portrait and rotation
+  in all directions independent of the system rotation lock.
+
 ### Fixed
+
+- Build blur feedback from the current post-warp image, following BeatDrop's pass
+  order and correcting excessive feedback in presets such as Digitally Frosted.
+- Preserve feedback textures when manual or Auto quality changes render resolution.
+- Skip uploads and drawing for zero-radius shapes without visible borders while
+  retaining every instance's equations and memory writes.
 
 - Keep Favourite and Hide icon states independent of the playing-row highlight,
   use current ratings after permission changes, and retain the open list/focus

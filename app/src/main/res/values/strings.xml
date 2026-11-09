@@ -164,4 +164,10 @@
     <string name="switch_live_receiver">Switch to Live Receiver</string>
     <string name="receiver_only_waiting">Waiting for a device to connect\nOpen MilkDrop on your phone or tablet and select this device (MilkDrop Live) from Cast.\n\nPress OK or Back to close.</string>
     <string name="receiver_only_connecting">Connecting to %1$s…</string>
+    <string name="setting_orientation">Screen orientation</string>
+    <string-array name="orientation_options">
+        <item>Follow system rotation</item>
+        <item>Auto-rotate all directions (ignore rotation lock)</item>
+        <item>Upside-down portrait (locked)</item>
+    </string-array>
 </resources>
