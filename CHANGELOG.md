@@ -11,6 +11,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Hold Auto quality at 30–60 FPS, lowering resolution after sustained readings below
+  30 FPS and allowing upgrades above 60 FPS while respecting the selected FPS limit.
+
 - Build blur feedback from the current post-warp image, following BeatDrop's pass
   order and correcting excessive feedback in presets such as Digitally Frosted.
 - Preserve feedback textures when manual or Auto quality changes render resolution.
