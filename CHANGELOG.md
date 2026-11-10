@@ -6,6 +6,12 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Stream shape fills and source-over borders through shared geometry uploads while
+  preserving each instance's fill/border order and all thick-outline passes; retain
+  the existing batching path for shapes that start in additive mode.
+- Reuse unchanged shape uniforms and exact polygon trigonometry; retain every
+  instance's equation execution, memory writes, packed colors and texture behavior.
+
 - Replace per-instance vertex resizing with C++14-compatible batching of consecutive
   compatible shape fills, including textured fills, and additive borders. Preserve
   source-over border order, sampler/color compatibility and equation/memory side
