@@ -1,7 +1,7 @@
 name: Release
 
-# Runs only when a version tag is pushed (v2.1.0, or v2.1.0-rc.1 for a pre-release):
-#   git tag v2.1.0 && git push origin v2.1.0
+# Runs only when a version tag is pushed (v2.2.0, or v2.2.0-rc.1 for a pre-release):
+#   git tag v2.2.0 && git push origin v2.2.0
 # Builds the APK and publishes it on the Releases page with the CHANGELOG notes and setup
 # instructions. See Docs/RELEASE_BUILD.md.
 on:

@@ -34,7 +34,7 @@ git -C native/projectm submodule update --init --recursive
 For the optimized, installable release APK, see [release build instructions](Docs/RELEASE_BUILD.md).
 
 Ready-built APKs are on the [Releases page](https://github.com/samir-dahal/MilkDrop/releases), each with its changelog and setup
-instructions. GitHub Actions builds and publishes one whenever a version tag such as `v2.1.0` is
+instructions. GitHub Actions builds and publishes one whenever a version tag such as `v2.2.0` is
 pushed (see [Publishing a release](Docs/RELEASE_BUILD.md#publishing-a-release)), fetching the
 latest projectM `master` and logging the commit used. Releases use the project's debug signing
 configuration; each fresh runner creates its own key, so installing over a local build or an

@@ -72,7 +72,7 @@ Android MilkDrop Live receiver.
 ## GitHub Actions
 
 The **Release** workflow (`.github/workflows/release.yml`) runs only when a version tag such
-as `v2.1.0` (or `v2.1.0-rc.1` for a pre-release) is pushed. It does not run on ordinary pushes
+as `v2.2.0` (or `v2.2.0-rc.1` for a pre-release) is pushed. It does not run on ordinary pushes
 or pull requests. It uses Java 17 and updates projectM to the latest upstream `master`,
 logging the commit. A release can therefore use a newer engine than a local build of the
 recorded revision; the commit is also written at the end of the release notes.
@@ -85,27 +85,27 @@ or earlier releases. Do not rely on a release APK upgrading an existing installa
 
 ### Publishing a release
 
-1. In `app/build.gradle.kts`, raise `versionName` (for example `2.1.0`) and `versionCode`.
+1. In `app/build.gradle.kts`, raise `versionName` (for example `2.2.0`) and `versionCode`.
 2. In `CHANGELOG.md`, rename the entries under `## [Unreleased]` to
-   `## [2.1.0] - YYYY-MM-DD` and leave an empty `## [Unreleased]` above it.
+   `## [2.2.0] - YYYY-MM-DD` and leave an empty `## [Unreleased]` above it.
 3. Commit, then tag and push the tag:
 
    ```shell
-   git tag v2.1.0
-   git push origin main v2.1.0
+   git tag v2.2.0
+   git push origin main v2.2.0
    ```
 
 The workflow stops within seconds, before building, if the tag is not a version, if it differs
 from `versionName`, or if `CHANGELOG.md` has no section for it. Otherwise it builds the APK and
-creates the release **MilkDrop 2.1.0** with:
+creates the release **MilkDrop 2.2.0** with:
 
-- `MilkDrop-2.1.0.apk` attached to the release.
+- `MilkDrop-2.2.0.apk` attached to the release.
 - The changelog section as the release notes, followed by the install and preset setup
   instructions from `.github/release-notes/install.md`. Edit that file to change the
   instructions for every later release.
 
-If the workflow fails, fix the cause, delete the tag (`git tag -d v2.1.0` and
-`git push origin :refs/tags/v2.1.0`), and tag again.
+If the workflow fails, fix the cause, delete the tag (`git tag -d v2.2.0` and
+`git push origin :refs/tags/v2.2.0`), and tag again.
 
 ## Install on the phone
 

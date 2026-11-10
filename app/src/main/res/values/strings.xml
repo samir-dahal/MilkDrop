@@ -3,9 +3,9 @@
     <string name="engine_fps_value">%1$.1f FPS</string>
     <string name="engine_fps_measuring">Measuring FPS…</string>
     <string name="engine_live_info">%1$s ◉ projectM %2$s with MilkDrop patches</string>
-    <string name="engine_patch_info">MilkDrop uses a customized projectM engine to run MilkDrop presets. Its patches improve BeatDrop compatibility for waveforms, FFT shader functions, accurate beat detection, textures, preset variables and pixel alignment, and add date/time and touch input.</string>
-    <string name="engine_upstream_info">Upstream master version: %1$s ◉ Commit:\n%2$s</string>
-    <string name="engine_snapshot_description">FPS shows how many frames the visualizer renders each second; it may differ from the frame-rate setting and the TV’s playback rate. The version and commit identify the source bundled with this app, rather than the latest online release. Engine updates arrive with app updates.</string>
+    <string name="engine_patch_info">MilkDrop runs presets using projectM, with patches to bring their appearance and audio response closer to MilkDrop and BeatDrop. These improve waveforms, beat detection, FFT shader functions, textures, preset variables and pixel alignment. The engine also includes shape drawing optimizations, extended shader functions, date and time variables, and mouse and touch input.</string>
+    <string name="engine_upstream_info">Bundled upstream version: %1$s ◉ Commit:\n%2$s</string>
+    <string name="engine_snapshot_description">FPS is the measured rendering rate, not the selected frame-rate limit or the playback rate on a casting receiver. The version and commit identify the upstream projectM source bundled with this app; MilkDrop’s patches are applied on top. Engine updates come with app updates.</string>
     <string name="cast_start">Cast</string>
     <string name="cast_live_device">%1$s (MilkDrop Live)</string>
     <string name="cast_receiving">Receiving visuals…</string>

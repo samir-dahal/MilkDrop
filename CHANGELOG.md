@@ -4,6 +4,13 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-10
+
+### Changed
+
+- Refine Settings engine information, including compatibility patches, shape drawing
+  optimizations, measured FPS and the bundled upstream source.
+
 ### Fixed
 
 - Stream shape fills and source-over borders through shared geometry uploads while
@@ -324,6 +331,7 @@ in [#3](https://github.com/samir-dahal/MilkDrop/pull/3). Thank you!
 First build: projectM 4.1.7 visualizer with internal-audio and microphone capture, preset list
 with search, and tuned frame pacing for the Galaxy F15.
 
-[Unreleased]: https://github.com/samir-dahal/MilkDrop/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/samir-dahal/MilkDrop/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/samir-dahal/MilkDrop/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/samir-dahal/MilkDrop/compare/v1.1.0...v2.1.0
 [1.1.0]: https://github.com/samir-dahal/MilkDrop/compare/5c195a4...v1.1.0
