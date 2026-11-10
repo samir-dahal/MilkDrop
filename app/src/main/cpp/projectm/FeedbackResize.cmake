@@ -36,24 +36,8 @@ patch_projectm_source(Renderer src/libprojectM/Renderer/Framebuffer.cpp
     return true;]=]
 )
 
-# Particle presets keep inactive instances for their memory/equation side effects.
-# Execute those effects, but avoid buffer uploads and draws for empty geometry.
-patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.cpp
-    [=[        m_perFrameContext.ExecutePerFrameCode();]=]
-    [=[        m_perFrameContext.ExecutePerFrameCode();
-        if (*m_perFrameContext.rad == 0.0 && !(*m_perFrameContext.border_a > 0.0001))
-            continue;]=]
-)
-
 # BeatDrop builds this frame's blur pyramid from the completed warp target.
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropPreset.cpp
     [=[const auto warpedImage = m_framebuffer.GetColorAttachmentTexture(m_previousFrameBuffer, 0);]=]
     [=[const auto warpedImage = m_framebuffer.GetColorAttachmentTexture(m_currentFrameBuffer, 0);]=]
-)
-
-# Upload only the vertices actually used by the indexed triangle fan.
-patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.cpp
-    [=[        auto& vertexData = m_fillMesh.Vertices();]=]
-    [=[        m_fillMesh.SetVertexCount(sides + 2);
-        auto& vertexData = m_fillMesh.Vertices();]=]
 )

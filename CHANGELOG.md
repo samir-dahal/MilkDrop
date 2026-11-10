@@ -6,7 +6,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
-- Upload only the shape vertices used by each triangle fan instead of all 102 slots.
+- Replace per-instance vertex resizing with C++14-compatible batching of consecutive
+  borderless, untextured shape fills. Preserve instance order, blending, texture/border
+  draws and all equation/memory side effects; bound temporary batch storage.
 - Remove the orientation selector and follow system rotation in all four directions.
 - Allow Auto quality upgrades near 59 FPS so 60 Hz displays can recover resolution.
 

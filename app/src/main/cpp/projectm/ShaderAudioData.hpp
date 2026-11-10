@@ -7,9 +7,9 @@
 
 namespace milkdrop {
 
-inline constexpr std::size_t ShaderFftBins = 1024;
-inline constexpr std::size_t ShaderFftWindow = ShaderFftBins * 2;
-inline constexpr std::size_t ShaderWaveSamples = 576;
+constexpr std::size_t ShaderFftBins = 1024;
+constexpr std::size_t ShaderFftWindow = ShaderFftBins * 2;
+constexpr std::size_t ShaderWaveSamples = 576;
 
 // Shared by all presets of one PCM instance so transitions and preset switches
 // retain the same peak history. Only the render thread reads/writes these fields.
