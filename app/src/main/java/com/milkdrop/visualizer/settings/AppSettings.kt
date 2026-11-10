@@ -8,10 +8,6 @@ class AppSettings(context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    var orientationMode: Int
-        get() = prefs.getInt("orientation_mode", 0).coerceIn(0, 2)
-        set(value) = prefs.edit().putInt("orientation_mode", value.coerceIn(0, 2)).apply()
-
     var swipeGesturesEnabled: Boolean
         get() = prefs.getBoolean("swipe_gestures_enabled", true)
         set(value) = prefs.edit().putBoolean("swipe_gestures_enabled", value).apply()

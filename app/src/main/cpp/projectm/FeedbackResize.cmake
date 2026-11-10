@@ -50,3 +50,10 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropPreset
     [=[const auto warpedImage = m_framebuffer.GetColorAttachmentTexture(m_previousFrameBuffer, 0);]=]
     [=[const auto warpedImage = m_framebuffer.GetColorAttachmentTexture(m_currentFrameBuffer, 0);]=]
 )
+
+# Upload only the vertices actually used by the indexed triangle fan.
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.cpp
+    [=[        auto& vertexData = m_fillMesh.Vertices();]=]
+    [=[        m_fillMesh.SetVertexCount(sides + 2);
+        auto& vertexData = m_fillMesh.Vertices();]=]
+)

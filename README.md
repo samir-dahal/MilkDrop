@@ -244,13 +244,11 @@ Preset equation variables `aspectx` and `aspecty` also become `1.0` in screen-de
   Percentages scale each render dimension, not total pixel count. Quality never changes
   mesh size. Auto starts at the highest tier and adjusts from measured FPS while retaining
   the selected frame-rate limit. Two consecutive low-FPS samples lower one tier; exceeding
-  the target permits one step up per second. At a 60 Hz target, 30–60 FPS holds steady,
-  below 30 FPS lowers quality, and above 60 FPS permits an upgrade. Lower intentional
+  the target permits one step up per second. At a 60 Hz target, 30–58 FPS holds steady,
+  below 30 FPS lowers quality, and approximately 59–60 FPS permits an upgrade. Lower intentional
   frame-rate limits reduce the thresholds to match.
 - **Swipe gestures** — enable or disable the visualization's swipe shortcuts. Pointer
   variables continue working when shortcuts are disabled.
-- **Screen orientation** — follow system rotation, rotate in all directions even with
-  rotation lock enabled, or lock upside-down portrait. TVs retain their display orientation.
 - **Screen-Dependent Render Mode** — fit custom waves, shapes, built-in waves, and per-vertex
   motion to full-screen coordinates, following BeatDrop's screen-dependent convention. Off by
   default for standard projectM rendering. Applies immediately and is saved across launches.

@@ -440,14 +440,6 @@
 
                 <TextView
                     style="@style/SettingLabel"
-                    android:labelFor="@id/spinnerOrientation"
-                    android:text="@string/setting_orientation" />
-                <Spinner
-                    android:id="@+id/spinnerOrientation"
-                    style="@style/TimingSpinner" />
-
-                <TextView
-                    style="@style/SettingLabel"
                     android:labelFor="@id/groupAudioSource"
                     android:text="@string/setting_audio_source" />
 

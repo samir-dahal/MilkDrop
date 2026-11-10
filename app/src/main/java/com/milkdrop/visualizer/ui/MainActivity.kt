@@ -238,7 +238,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         settings = AppSettings(this)
-        applyOrientationMode()
+        if (!isTelevision()) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         // Two small files, read once here; writes go to the background executor.
         hadStorageAccess = hasAllFilesAccess()
         ratingsStore = PresetRatingsStore(
@@ -416,7 +416,7 @@ class MainActivity : AppCompatActivity() {
                     updateQualityDescription()
                 }
             }
-            fps > (target * AUTO_QUALITY_UPGRADE_THRESHOLD).roundToInt() -> {
+            fps >= (target * AUTO_QUALITY_UPGRADE_THRESHOLD).roundToInt() -> {
                 highFpsSamples++
                 lowFpsSamples = 0
                 if (highFpsSamples >= AUTO_QUALITY_UPGRADE_SAMPLES && adaptiveQualityIndex < QUALITY_ULTRA_HIGH) {
@@ -954,27 +954,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun applyOrientationMode() {
-        if (isTelevision()) return
-        requestedOrientation = when (settings.orientationMode) {
-            1 -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
-            2 -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
-            else -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
-        }
-    }
-
     private fun setupSettingsSheet() {
-        configureTimingSpinner(binding.spinnerOrientation, R.array.orientation_options, settings.orientationMode)
-        binding.spinnerOrientation.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (settings.orientationMode == position) return
-                settings.orientationMode = position
-                applyOrientationMode()
-            }
-        }
-        binding.spinnerOrientation.isEnabled = !isTelevision()
-
         binding.btnWirelessDisplay.isVisible = WirelessDisplaySettings.available(this)
         binding.wirelessDisplayDescription.isVisible = binding.btnWirelessDisplay.isVisible
         binding.btnWirelessDisplay.setOnClickListener {
@@ -1641,10 +1621,10 @@ class MainActivity : AppCompatActivity() {
         const val MESH_SIZE_MAX = 300
         // Samples average roughly one second. Hold quality through brief dips and the
         // near-target band; only sustained shortfall should lower the resolution.
-        // At 60 Hz: two samples below 30 FPS lower one tier, 30–60 holds,
-        // and a sample above 60 FPS allows one higher tier per second.
+        // At 60 Hz: two samples below 30 FPS lower one tier, 30–58 holds,
+        // and a sample at approximately 59 FPS allows one higher tier per second.
         const val AUTO_QUALITY_DOWNGRADE_THRESHOLD = 30f / 60f
-        const val AUTO_QUALITY_UPGRADE_THRESHOLD = 1.0f
+        const val AUTO_QUALITY_UPGRADE_THRESHOLD = 59f / 60f
         const val AUTO_QUALITY_DOWNGRADE_SAMPLES = 2
         const val AUTO_QUALITY_UPGRADE_SAMPLES = 1
 

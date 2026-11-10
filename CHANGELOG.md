@@ -4,12 +4,11 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ## [Unreleased]
 
-### Added
-
-- Saved screen-orientation choices, including upside-down portrait and rotation
-  in all directions independent of the system rotation lock.
-
 ### Fixed
+
+- Upload only the shape vertices used by each triangle fan instead of all 102 slots.
+- Remove the orientation selector and follow system rotation in all four directions.
+- Allow Auto quality upgrades near 59 FPS so 60 Hz displays can recover resolution.
 
 - Hold Auto quality at 30–60 FPS, lowering resolution after sustained readings below
   30 FPS and allowing upgrades above 60 FPS while respecting the selected FPS limit.
