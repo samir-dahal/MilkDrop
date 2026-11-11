@@ -498,6 +498,14 @@
                     android:textSize="16sp" />
 
                 <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/swipe_gestures_description"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
+
+                <TextView
                     android:id="@+id/audioSensitivityLabel"
                     style="@style/SettingLabel"
                     android:labelFor="@id/sliderAudioSensitivity"
@@ -594,6 +602,14 @@
                         android:text="@string/engine_info_title"
                         android:textColor="@color/overlay_content"
                         android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/engineAppVersion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/overlay_content"
+                        android:textSize="13sp" />
 
                     <TextView
                         android:id="@+id/engineLiveInfo"

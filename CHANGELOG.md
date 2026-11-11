@@ -4,6 +4,12 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ## [Unreleased]
 
+### Changed
+
+- Restore the previous sidebar visibility when Settings is dismissed, including
+  outside taps in landscape, Close and Back.
+- Explain swipe controls in Settings and show the MilkDrop app version above engine FPS.
+
 ### Fixed
 
 - Support integer output exponents in scalar and vector shader `frexp()` calls,

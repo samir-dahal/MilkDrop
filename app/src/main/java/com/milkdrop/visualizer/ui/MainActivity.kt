@@ -129,6 +129,7 @@ class MainActivity : AppCompatActivity() {
     private var graphicsBlocked = false
     private var remoteNavigation = false
     private var restoreControlsAfterPlaylist = false
+    private var restoreControlsAfterSettings = false
     private val consumedRemoteKeys = mutableSetOf<Int>()
     private var activeTouchPointer = -1
     private val pointerWindowOrigin = IntArray(2)
@@ -149,7 +150,7 @@ class MainActivity : AppCompatActivity() {
         override fun handleOnBackPressed() {
             when {
                 binding.playlistPanel.isVisible -> closePlaylistPanel()
-                binding.settingsSheet.isVisible -> closeSettingsSheet(showControls = true)
+                binding.settingsSheet.isVisible -> closeSettingsSheet()
                 else -> {
                     hideRemoteControls()
                 }
@@ -875,7 +876,7 @@ class MainActivity : AppCompatActivity() {
         surfaceView.isSoundEffectsEnabled = false
         surfaceView.setOnClickListener {
             if (binding.playlistPanel.isVisible) return@setOnClickListener
-            if (binding.settingsSheet.isVisible) closeSettingsSheet(showControls = false) else toggleControlBar()
+            if (binding.settingsSheet.isVisible) closeSettingsSheet() else toggleControlBar()
         }
         for (target in listOf<View>(surfaceView, binding.castStatus)) {
             target.isFocusable = false
@@ -979,7 +980,7 @@ class MainActivity : AppCompatActivity() {
         binding.inputMeshSizeY.nextFocusDownId = R.id.spinnerQuality
         binding.resetAudioSensitivity.nextFocusDownId = R.id.sliderFftShaderScaling
         binding.resetAudioSensitivity.nextFocusUpId = R.id.sliderAudioSensitivity
-        binding.btnCloseSettings.setOnClickListener { closeSettingsSheet(showControls = true) }
+        binding.btnCloseSettings.setOnClickListener { closeSettingsSheet() }
         binding.switchPresetNameDuringTransitions.setOnCheckedChangeListener { _, checked ->
             if (updatingControls) return@setOnCheckedChangeListener
             settings.showPresetNameDuringTransitions = checked
@@ -1206,8 +1207,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openSettingsSheet() {
+        if (!binding.settingsSheet.isVisible) restoreControlsAfterSettings = binding.controlBar.isVisible
         binding.controlBar.isVisible = false
         binding.settingsSheet.isVisible = true
+        binding.engineAppVersion.text = getString(R.string.engine_app_version, BuildConfig.VERSION_NAME)
         binding.engineUpstreamInfo.text = getString(R.string.engine_upstream_info,
             BuildConfig.PROJECTM_VERSION, BuildConfig.PROJECTM_COMMIT)
         binding.engineLiveInfo.removeCallbacks(refreshSettingsInfo)
@@ -1218,7 +1221,8 @@ class MainActivity : AppCompatActivity() {
         updateTopLabel()
     }
 
-    private fun closeSettingsSheet(showControls: Boolean) {
+    private fun closeSettingsSheet() {
+        val showControls = restoreControlsAfterSettings
         binding.engineLiveInfo.removeCallbacks(refreshSettingsInfo)
         binding.settingsSheet.isVisible = false
         binding.controlBar.isVisible = showControls
@@ -1459,7 +1463,7 @@ class MainActivity : AppCompatActivity() {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 remoteNavigation = true
                 if (binding.playlistPanel.isVisible) closePlaylistPanel()
-                if (binding.settingsSheet.isVisible) closeSettingsSheet(true) else openSettingsSheet()
+                if (binding.settingsSheet.isVisible) closeSettingsSheet() else openSettingsSheet()
             }
             return true
         }

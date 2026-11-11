@@ -1,5 +1,6 @@
 <resources>
     <string name="engine_info_title">Engine information</string>
+    <string name="engine_app_version">MilkDrop %1$s</string>
     <string name="engine_fps_value">%1$.1f FPS</string>
     <string name="engine_fps_measuring">Measuring FPS…</string>
     <string name="engine_live_info">%1$s ◉ projectM %2$s with MilkDrop patches</string>
@@ -158,6 +159,7 @@
     <string name="presets_need_access">Allow All files access so the app can read MilkDropApp/presets.</string>
     <string name="presets_storage_unavailable">Unable to create the presets or textures folder. Check storage access and available space.</string>
     <string name="setting_swipe_gestures">Swipe gestures</string>
+    <string name="swipe_gestures_description">Swipe left for the next preset, right for the previous preset, up to open the preset list, or down to turn shuffle on or off. Swipe on the visuals with the sidebar shown or hidden. Gestures are paused while Settings or the preset list is open.</string>
     <string name="reset_audio_sensitivity">Reset</string>
     <string name="reset_audio_sensitivity_description">Reset audio sensitivity to 1.0×</string>
     <string name="slider_remote_hint">Remote: Left/Right adjusts the slider. Press OK to reach the number field or Reset; Up/Down moves through settings.</string>
