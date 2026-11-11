@@ -874,6 +874,7 @@ class MainActivity : AppCompatActivity() {
         surfaceView.isFocusable = false // Remote focus belongs to the overlay controls.
         surfaceView.isSoundEffectsEnabled = false
         surfaceView.setOnClickListener {
+            if (binding.playlistPanel.isVisible) return@setOnClickListener
             if (binding.settingsSheet.isVisible) closeSettingsSheet(showControls = false) else toggleControlBar()
         }
         for (target in listOf<View>(surfaceView, binding.castStatus)) {

@@ -4,6 +4,12 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ## [Unreleased]
 
+### Fixed
+
+- Support integer output exponents in scalar and vector shader `frexp()` calls,
+  fixing the dark fallback in Silicon Life (Devolution Mix).
+- Prevent taps on the preset-list background from toggling the sidebar.
+
 ## [2.2.0] - 2026-11-10
 
 ### Changed
