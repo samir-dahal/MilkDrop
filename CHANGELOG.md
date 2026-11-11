@@ -6,6 +6,10 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Lower the minimum Android version to Android 5.0 (API 21), with legacy audio,
+  service lookup, pointer and casting fallbacks. Local visualization still requires
+  OpenGL ES 3.0; stereo Internal capture remains Android 10+.
+
 - Show the GPU, OpenGL ES driver version and live audio capture sample rate in
   Engine information; stop displaying the rate when capture becomes inactive.
 - Restore the previous sidebar visibility when Settings is dismissed, including

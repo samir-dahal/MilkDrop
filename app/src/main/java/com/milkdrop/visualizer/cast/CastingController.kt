@@ -1,5 +1,6 @@
 package com.milkdrop.visualizer.cast
 
+import androidx.core.content.ContextCompat
 import android.app.Presentation
 import android.content.Context
 import android.hardware.display.DisplayManager
@@ -57,7 +58,7 @@ class CastingController(
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private val router = MediaRouter.getInstance(context)
-    private val displays = context.getSystemService(DisplayManager::class.java)
+    private val displays = requireNotNull(ContextCompat.getSystemService(context, DisplayManager::class.java))
     private val systemRoutes = SystemDisplayRoutes(context)
     private val connectedPeer = ConnectedDisplayPeer(context)
     private var peerName: Pair<Int, String>? = null
@@ -595,8 +596,13 @@ class CastingController(
         if (old != null) cleanup(old, null, null)
     }
 
-    private fun encodingFrameRate(): Int = maxOf(renderer.targetFps,
-        renderer.display?.supportedModes?.maxOfOrNull { kotlin.math.ceil(it.refreshRate.toDouble()).toInt() } ?: 60)
+    private fun encodingFrameRate(): Int {
+        val display = renderer.display
+        val refresh = if (Build.VERSION.SDK_INT >= 23) {
+            display?.supportedModes?.maxOfOrNull { it.refreshRate }
+        } else display?.refreshRate
+        return maxOf(renderer.targetFps, refresh?.let { kotlin.math.ceil(it.toDouble()).toInt() } ?: 60)
+    }
 
     fun stop(selectLocal: Boolean = true, suppressDisplay: Boolean = true) {
         generation++
@@ -652,8 +658,9 @@ class CastingController(
 
     @Suppress("DEPRECATION") // API 28 needs the existing LAN networks, not only the internet default.
     private fun lanAddress(): String {
-        val connectivity = context.getSystemService(ConnectivityManager::class.java)
-        for (network in (listOfNotNull(connectivity.activeNetwork) + connectivity.allNetworks).distinct()) {
+        val connectivity = requireNotNull(ContextCompat.getSystemService(context, ConnectivityManager::class.java))
+        val defaultNetwork = if (Build.VERSION.SDK_INT >= 23) connectivity.activeNetwork else null
+        for (network in (listOfNotNull(defaultNetwork) + connectivity.allNetworks).distinct()) {
             val capabilities = connectivity.getNetworkCapabilities(network) ?: continue
             if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
                 !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) continue

@@ -13,7 +13,8 @@
         <item name="android:layout_weight">1</item>
         <item name="android:minHeight">@dimen/control_min_height</item>
         <item name="android:gravity">center</item>
-        <item name="android:paddingVertical">6dp</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
         <item name="android:drawablePadding">2dp</item>
         <item name="android:textSize">@dimen/control_text_size</item>
         <item name="android:textColor">@color/overlay_content</item>

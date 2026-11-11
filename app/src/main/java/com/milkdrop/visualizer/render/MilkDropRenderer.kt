@@ -125,7 +125,11 @@ class MilkDropRenderer(
 
     /** Positions cover the whole visualization, including touches delivered to overlay controls. */
     fun updatePointer(x: Float, y: Float, down: Boolean, pressed: Boolean = false) {
-        pointer.updateAndGet { previous -> PointerState(x, y, down, previous.pressed || pressed || (down && !previous.down)) }
+        // AtomicReference.updateAndGet requires API 24. Keep the same atomic latch on API 21.
+        do {
+            val previous = pointer.get()
+            val next = PointerState(x, y, down, previous.pressed || pressed || (down && !previous.down))
+        } while (!pointer.compareAndSet(previous, next))
     }
 
     fun clearPointer() {
@@ -133,7 +137,10 @@ class MilkDropRenderer(
     }
 
     private fun applyPointer() {
-        val state = pointer.getAndUpdate { if (it.pressed) it.copy(pressed = false) else it }
+        var state: PointerState
+        do {
+            state = pointer.get()
+        } while (!pointer.compareAndSet(state, if (state.pressed) state.copy(pressed = false) else state))
         ProjectMBridge.nativeSetPointer(handle, state.x, state.y, state.down, state.pressed)
     }
 

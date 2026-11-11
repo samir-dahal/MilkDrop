@@ -345,8 +345,8 @@ class MainActivity : AppCompatActivity() {
         configureTimingSpinner(binding.spinnerTransitionTime, R.array.transition_time_options, transitionTimeIndex)
         configureTimingSpinner(binding.spinnerFrameRate, R.array.frame_rate_options, fpsIndex)
         configureTimingSpinner(binding.spinnerQuality, R.array.quality_options, qualityIndex)
-        binding.sliderMeshSizeX.progress = settings.meshColumns
-        binding.sliderMeshSizeY.progress = settings.meshRows
+        binding.sliderMeshSizeX.progress = settings.meshColumns - MESH_SIZE_MIN
+        binding.sliderMeshSizeY.progress = settings.meshRows - MESH_SIZE_MIN
         binding.inputMeshSizeX.setText(settings.meshColumns.toString())
         binding.inputMeshSizeY.setText(settings.meshRows.toString())
         binding.groupAudioSource.check(AUDIO_INPUT_BUTTON_IDS.getValue(settings.audioInput))
@@ -806,7 +806,8 @@ class MainActivity : AppCompatActivity() {
                 MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE,
                 MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE -> {
                     val down = event.buttonState and (MotionEvent.BUTTON_PRIMARY or MotionEvent.BUTTON_SECONDARY) != 0
-                    val pressed = event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
+                    val pressed = Build.VERSION.SDK_INT >= 23 &&
+                        event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
                         event.actionButton and (MotionEvent.BUTTON_PRIMARY or MotionEvent.BUTTON_SECONDARY) != 0
                     sendPointer(event, 0, down, pressed)
                 }
@@ -1050,10 +1051,10 @@ class MainActivity : AppCompatActivity() {
             applyQuality()
         }
         binding.sliderMeshSizeX.onUserProgress { columns ->
-            applyMeshSize(columns = columns)
+            applyMeshSize(columns = columns + MESH_SIZE_MIN)
         }
         binding.sliderMeshSizeY.onUserProgress { rows ->
-            applyMeshSize(rows = rows)
+            applyMeshSize(rows = rows + MESH_SIZE_MIN)
         }
         setupMeshSizeInput(binding.inputMeshSizeX) { columns -> applyMeshSize(columns = columns) }
         setupMeshSizeInput(binding.inputMeshSizeY) { rows -> applyMeshSize(rows = rows) }
@@ -1115,8 +1116,8 @@ class MainActivity : AppCompatActivity() {
     private fun syncMeshSizeControls(columns: Int, rows: Int) {
         val wasUpdating = updatingControls
         updatingControls = true
-        binding.sliderMeshSizeX.progress = columns
-        binding.sliderMeshSizeY.progress = rows
+        binding.sliderMeshSizeX.progress = columns - MESH_SIZE_MIN
+        binding.sliderMeshSizeY.progress = rows - MESH_SIZE_MIN
         if (!binding.inputMeshSizeX.hasFocus()) binding.inputMeshSizeX.setText(columns.toString())
         if (!binding.inputMeshSizeY.hasFocus()) binding.inputMeshSizeY.setText(rows.toString())
         updatingControls = wasUpdating
@@ -1185,10 +1186,12 @@ class MainActivity : AppCompatActivity() {
         val fps = FrameRates.options[fpsIndex]
         surfaceView.targetFps = fps
         val display = surfaceView.display ?: windowManager.defaultDisplay
-        val mode = display.mode
-        val highest = display.supportedModes.filter {
-            it.physicalWidth == mode.physicalWidth && it.physicalHeight == mode.physicalHeight
-        }.maxOfOrNull { it.refreshRate } ?: mode.refreshRate
+        val highest = if (Build.VERSION.SDK_INT >= 23) {
+            val mode = display.mode
+            display.supportedModes.filter {
+                it.physicalWidth == mode.physicalWidth && it.physicalHeight == mode.physicalHeight
+            }.maxOfOrNull { it.refreshRate } ?: mode.refreshRate
+        } else display.refreshRate
         window.attributes = window.attributes.apply {
             // Ask for high-refresh modes without changing screen resolution or slowing UI
             // to 24/30 Hz. Android still makes the final choice based on device policy.
@@ -1481,13 +1484,18 @@ class MainActivity : AppCompatActivity() {
 
     /** Sends a media key to whichever app is playing, as headset buttons would. */
     private fun dispatchMediaKey(keyCode: Int) {
-        val audioManager = getSystemService(AudioManager::class.java)
+        val audioManager = requireNotNull(ContextCompat.getSystemService(this, AudioManager::class.java))
         val eventTime = SystemClock.uptimeMillis()
         audioManager.dispatchMediaKeyEvent(KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, keyCode, 0))
         audioManager.dispatchMediaKeyEvent(KeyEvent(eventTime, eventTime, KeyEvent.ACTION_UP, keyCode, 0))
     }
 
     private fun requestPermissionsThenStartAudio() {
+        // Android 5 grants these manifest permissions at install time.
+        if (Build.VERSION.SDK_INT < 23) {
+            requestStorageAccessThenStartAudio()
+            return
+        }
         val needed = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED

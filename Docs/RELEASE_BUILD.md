@@ -20,7 +20,8 @@ sdk.dir=C:/Users/YOUR_USER/AppData/Local/Android/Sdk
 ```
 
 The unified APK includes `armeabi-v7a`, `arm64-v8a`, `x86` and `x86_64`. Devices need
-Android 9 (API 28) or newer and working OpenGL ES 3.0 graphics. Android 9 retains
+Android 5.0 (API 21) or newer and working OpenGL ES 3.0 graphics for local rendering.
+Devices without ES 3.0 can use Live Receiver with a compatible AVC decoder. Android 5–9 retain
 mono Internal capture; optional stereo Internal capture requires Android 10+ and
 system consent. See [audio capture details](SHADER_INPUTS.md).
 

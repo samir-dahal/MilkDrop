@@ -15,7 +15,7 @@ internal class LiveCastServer : Closeable {
     private val lock = Object()
     private val token = UUID.randomUUID().toString()
     private val listener = ServerSocket(0, 2)
-    private val clients = ConcurrentHashMap.newKeySet<Socket>()
+    private val clients = java.util.Collections.newSetFromMap(ConcurrentHashMap<Socket, Boolean>())
     private val slots = Semaphore(2)
     private val workers = Executors.newFixedThreadPool(2) { Thread(it, "MilkDrop-live-http").apply { isDaemon = true } }
     private val frames = ArrayDeque<Frame>()
@@ -48,7 +48,9 @@ internal class LiveCastServer : Closeable {
         if (muxer == null) {
             muxer = FragmentedMp4(width, height, sps, pps)
             fps = frameRate.coerceAtLeast(1)
-            recordLimit = Math.multiplyExact(Math.multiplyExact(width, height), 4)
+            val pixels = width.toLong() * height.toLong()
+            require(width > 0 && height > 0 && pixels <= Int.MAX_VALUE / 4) { "Invalid stream dimensions" }
+            recordLimit = (pixels * 4).toInt()
             sendBuffer = (CastEncodingPolicy.bitRate(CastEncodingPolicy.Mode(width, height, fps)) / fps / 8 * 2).coerceAtLeast(1)
             lock.notifyAll()
         }

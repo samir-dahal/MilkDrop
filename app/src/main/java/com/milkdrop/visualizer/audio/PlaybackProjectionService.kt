@@ -8,10 +8,12 @@ import android.content.Intent
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Binder
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.milkdrop.visualizer.R
 import com.milkdrop.visualizer.ui.MainActivity
 
@@ -26,7 +28,8 @@ class PlaybackProjectionService : Service() {
     inner class SessionBinder : Binder() {
         fun open(code: Int, data: Intent, onEnded: () -> Unit): MediaProjection {
             check(projection == null) { "Capture grant already consumed" }
-            val token = getSystemService(MediaProjectionManager::class.java).getMediaProjection(code, data)
+            val token = requireNotNull(ContextCompat.getSystemService(this@PlaybackProjectionService,
+                MediaProjectionManager::class.java)).getMediaProjection(code, data)
             token.registerCallback(callback, Handler(Looper.getMainLooper()))
             ended = onEnded
             projection = token
@@ -37,9 +40,11 @@ class PlaybackProjectionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val notifications = getSystemService(NotificationManager::class.java)
-        notifications.createNotificationChannel(NotificationChannel(CHANNEL,
-            getString(R.string.audio_capture_channel), NotificationManager.IMPORTANCE_LOW))
+        if (Build.VERSION.SDK_INT >= 26) {
+            val notifications = getSystemService(NotificationManager::class.java)
+            notifications.createNotificationChannel(NotificationChannel(CHANNEL,
+                getString(R.string.audio_capture_channel), NotificationManager.IMPORTANCE_LOW))
+        }
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop = PendingIntent.getService(this, 1, Intent(this, javaClass).setAction(STOP),
@@ -58,7 +63,8 @@ class PlaybackProjectionService : Service() {
     override fun onBind(intent: Intent): IBinder = SessionBinder()
     override fun onDestroy() {
         closeProjection()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE)
+        else @Suppress("DEPRECATION") stopForeground(true)
         super.onDestroy()
     }
 

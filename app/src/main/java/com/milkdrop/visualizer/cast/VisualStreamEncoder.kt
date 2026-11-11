@@ -58,12 +58,20 @@ internal class VisualStreamEncoder(
                     setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
                     setInteger(MediaFormat.KEY_BIT_RATE, capabilities.bitrateRange.clamp(CastEncodingPolicy.bitRate(mode.copy(fps = fps))))
                     setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-                    setFloat(MediaFormat.KEY_I_FRAME_INTERVAL, CastVideoTiming.KEY_FRAME_SECONDS)
+                    if (Build.VERSION.SDK_INT >= 25) {
+                        setFloat(MediaFormat.KEY_I_FRAME_INTERVAL, CastVideoTiming.KEY_FRAME_SECONDS)
+                    } else {
+                        // Older codecs require whole seconds for this key.
+                        setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,
+                            kotlin.math.ceil(CastVideoTiming.KEY_FRAME_SECONDS.toDouble()).toInt().coerceAtLeast(1))
+                    }
                     setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
                     if (realtime) {
-                        setInteger(MediaFormat.KEY_PRIORITY, 0)
-                        setInteger(MediaFormat.KEY_LATENCY, 0)
-                        setInteger(MediaFormat.KEY_OPERATING_RATE, fps)
+                        if (Build.VERSION.SDK_INT >= 23) {
+                            setInteger(MediaFormat.KEY_PRIORITY, 0)
+                            setInteger(MediaFormat.KEY_OPERATING_RATE, fps)
+                        }
+                        if (Build.VERSION.SDK_INT >= 26) setInteger(MediaFormat.KEY_LATENCY, 0)
                         if (Build.VERSION.SDK_INT >= 29) setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
                         if (codecCapabilities.encoderCapabilities.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)) {
                             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)

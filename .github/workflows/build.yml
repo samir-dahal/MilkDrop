@@ -56,8 +56,8 @@ jobs:
           node --check cast-receiver/receiver.js
           node --check cast-receiver/stream.js
 
-      - name: Build release APK
-        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+      - name: Check Android compatibility and build release APK
+        run: ./gradlew :app:lintRelease :app:assembleRelease --no-daemon --stacktrace
 
       - name: Name release APK
         run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/MilkDrop-build.apk

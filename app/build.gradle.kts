@@ -37,7 +37,7 @@ android {
 
     defaultConfig {
         applicationId = "com.milkdrop.visualizer"
-        minSdk = 28
+        minSdk = 21
         targetSdk = 35
         versionCode = 5
         versionName = "2.2.0"

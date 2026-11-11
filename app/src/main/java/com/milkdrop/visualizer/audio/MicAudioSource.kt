@@ -6,6 +6,8 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.Build
+import androidx.core.content.ContextCompat
 
 /** Fallback source for apps that block playback capture, or for ambient/room audio. */
 class MicAudioSource(
@@ -55,9 +57,11 @@ class MicAudioSource(
      * is the fallback recommended for capture without automatic gain or noise suppression.
      */
     private fun micInput(): Int {
-        val audioManager = context.getSystemService(AudioManager::class.java)
-        val unprocessed = audioManager.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED)
-        return if (unprocessed == "true") {
+        val audioManager = ContextCompat.getSystemService(context, AudioManager::class.java)
+        val unprocessed = if (Build.VERSION.SDK_INT >= 24) {
+            audioManager?.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED)
+        } else null
+        return if (Build.VERSION.SDK_INT >= 24 && unprocessed == "true") {
             MediaRecorder.AudioSource.UNPROCESSED
         } else {
             MediaRecorder.AudioSource.VOICE_RECOGNITION

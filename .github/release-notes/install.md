@@ -4,9 +4,12 @@
 
        adb install -r {{APK}}
 
-2. Open MilkDrop and allow the permissions it asks for: the microphone, and **All files access** so it can read your presets.
+2. Open MilkDrop and allow microphone and preset-folder access when requested.
+   Android 5 grants permissions at installation; Android 6–10 use runtime permissions,
+   and Android 11+ uses **All files access** for the shared preset folder.
 
-Needs Android 9 or newer and a GPU with OpenGL ES 3.0.
+Needs Android 5.0 or newer. Local visuals require OpenGL ES 3.0; devices without
+it can use Live Receiver with a compatible AVC decoder.
 
 > The APK is signed with a development key, not a Play Store key, and every release is built on a fresh CI runner with its own key. Android refuses to update over a build signed with a different key, so uninstall the old app first. Your `MilkDropApp` folder (presets, textures, favourites) is kept; only the app's settings reset.
 

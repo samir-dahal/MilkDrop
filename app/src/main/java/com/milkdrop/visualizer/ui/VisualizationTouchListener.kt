@@ -1,6 +1,7 @@
 package com.milkdrop.visualizer.ui
 
 import android.content.Context
+import android.os.Build
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
@@ -34,7 +35,7 @@ internal class VisualizationTouchListener(
         // when the primary button was released. Treat it as the same stationary-click gesture as
         // touch, but do not map mouse drags to the touchscreen shortcut swipes.
         if (isMouse && event.actionMasked == MotionEvent.ACTION_DOWN &&
-            event.actionButton != MotionEvent.BUTTON_PRIMARY &&
+            !(Build.VERSION.SDK_INT >= 23 && event.actionButton == MotionEvent.BUTTON_PRIMARY) &&
             event.buttonState and MotionEvent.BUTTON_PRIMARY == 0
         ) return false
 

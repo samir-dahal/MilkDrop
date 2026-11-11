@@ -154,7 +154,7 @@ its cast icon animates outward through the signal waves.
   and recover at a fresh key frame; actual latency still depends on Wi-Fi and the TV decoder.
   The TV pauses its local renderer and audio capture while receiving; press **Back** on the
   TV remote or **Stop cast** on the phone to return to local visuals. Receiving is advertised
-  only while the TV app is in the foreground. Android 9 remains supported.
+  only while the TV app is in the foreground. Android 5.0 and newer remain supported.
 - **Google Cast / Chromecast / Google TV:** requires Google Play services and a receiver on
   the same reachable Wi-Fi or Ethernet network. A configured **MilkDrop Live web receiver**
   receives per-frame fragmented MP4 over a continuous connection and catches up after stalls,
@@ -185,7 +185,7 @@ its cast icon animates outward through the signal waves.
   rename it or directly enable/disable that protected system setting.
   Receiver names come from the selected route/display or, when available, the connected
   Wi-Fi Direct peer. If Android hides the name, MilkDrop may ask for optional Nearby devices
-  access (Android 13+) or Location access (Android 9–12) to identify that existing connection.
+  access (Android 13+) or Location access (Android 6–12) to identify that existing connection.
   Declining keeps casting available; unavailable or ambiguous names remain generic.
 
 Casting follows the selected frame rate within the encoder and receiver's supported limits.
@@ -200,7 +200,7 @@ Existing audio modes keep feeding projectM. Casting runs only while MilkDrop is 
 app pause, disconnection or failure; the phone then resumes local visuals. Network video
 encoding prefers up to 1920×1080 where supported, with lower-resolution and frame-rate
 fallbacks. The selected quality scales the rendered image before encoding; it does not
-guarantee that the encoded stream uses the same dimensions. Android 9 remains the minimum
+guarantee that the encoded stream uses the same dimensions. Android 5.0 (API 21) is the minimum
 supported version. A compatible receiver must advertise a service or route
 before the Cast button can appear.
 
@@ -263,7 +263,7 @@ Preset equation variables `aspectx` and `aspecty` also become `1.0` in screen-de
     Apps that block capture come through silent.
 - **Stereo Internal audio** — optional Android 10+ playback capture, off by default.
   Requires Android's capture-consent dialog. Canceling or dismissing consent turns this
-  setting off and retains mono Internal capture. Android 9 keeps mono Internal and
+  setting off and retains mono Internal capture. Android 5–9 keep mono Internal and
   disables the stereo switch. Microphone capture requests stereo independently and
   falls back to mono when unsupported. See [capture details](Docs/SHADER_INPUTS.md).
 - **Audio sensitivity** — 0–25× input gain for the visuals; default 1.0×, with a Reset
@@ -284,7 +284,9 @@ and full commit recorded for this APK. These identify the source actually built,
 a newer upstream revision that the installed app does not contain. FPS describes the local
 renderer; it does not measure a casting receiver's playback rate.
 
-The app requires Android 9 (API 28) or newer and a GPU with working OpenGL ES 3.0 support.
+The app requires Android 5.0 (API 21) or newer. Local visualization requires a GPU
+with working OpenGL ES 3.0 support; devices without it can switch to Live Receiver
+if they have a compatible AVC decoder.
 The unified APK includes 32-bit and 64-bit ARM and x86 builds. New installations default
 to Auto quality; saved quality and mesh choices are retained across launches.
 
