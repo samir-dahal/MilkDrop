@@ -6,6 +6,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Shrink unused release code and resources while retaining all four CPU architectures,
+  the native rendering bridge and Google Cast integration.
+
 - Lower the minimum Android version to Android 5.0 (API 21), with legacy audio,
   service lookup, pointer and casting fallbacks. Local visualization still requires
   OpenGL ES 3.0; stereo Internal capture remains Android 10+.

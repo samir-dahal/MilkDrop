@@ -68,3 +68,10 @@ jobs:
           name: MilkDrop-build
           path: app/build/outputs/apk/release/MilkDrop-build.apk
           if-no-files-found: error
+
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v7
+        with:
+          name: MilkDrop-build-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error

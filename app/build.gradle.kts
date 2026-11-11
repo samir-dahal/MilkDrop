@@ -63,7 +63,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Personal sideloaded app: sign release with the local debug key so the optimized APK
             // installs directly. Switch to a real keystore before distributing it anywhere.
             signingConfig = signingConfigs.getByName("debug")

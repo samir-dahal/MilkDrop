@@ -1,7 +1,8 @@
 # Building the release APK
 
 The release APK is non-debuggable and builds native code with `CMAKE_BUILD_TYPE=Release`.
-R8 minification is currently disabled. It uses the local Android debug signing key for
+R8 removes unused code and resources in release builds. Keep rules preserve the JNI
+bridge and the Google Cast options provider. It uses the local Android debug signing key for
 sideloading; a production distribution key is not configured.
 
 ## Requirements
@@ -38,6 +39,11 @@ git submodule update --init --recursive
 ```
 
 Output: `app\build\outputs\apk\release\app-release.apk`
+
+Release stack traces can be decoded with the matching
+`app/build/outputs/mapping/release/mapping.txt`. Keep this file with each build when
+investigating crashes; a mapping from another build is not interchangeable.
+Both GitHub Actions build workflows upload this mapping as a separate artifact.
 
 On Linux/macOS, use `./gradlew` instead of `.\gradlew.bat`.
 
