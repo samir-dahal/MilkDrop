@@ -6,6 +6,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Support HLSL remainder assignment (`%=`), restoring composite shaders that
+  previously failed to load, including Sam Gillman's Strobing Lights.
+
 - Prevent zero-strength shader effects from turning the composite frame black through
   `0 / 0`, including Rainbow Spider's flash calculation.
 

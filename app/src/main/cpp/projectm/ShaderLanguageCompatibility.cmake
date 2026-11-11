@@ -1,3 +1,5 @@
+include(${CMAKE_CURRENT_LIST_DIR}/ShaderRemainderAssignment.cmake)
+
 # Disabled effects in legacy presets can divide a zero strength by a zero
 # distance. Keep that contribution zero instead of poisoning the whole frame.
 # Ordinary division, including nonzero numerators divided by zero, is unchanged.
