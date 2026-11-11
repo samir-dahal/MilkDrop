@@ -92,6 +92,15 @@ class MainActivity : AppCompatActivity() {
             val measured = fps?.let { getString(R.string.engine_fps_value, it) }
                 ?: getString(R.string.engine_fps_measuring)
             binding.engineLiveInfo.text = getString(R.string.engine_live_info, measured, BuildConfig.PROJECTM_VERSION)
+            val graphics = surfaceView.milkDropRenderer.graphicsInfo
+            val unavailable = getString(R.string.engine_info_unavailable)
+            binding.engineGraphicsInfo.text = getString(R.string.engine_graphics_info,
+                graphics?.gpu?.takeIf { it.isNotBlank() } ?: unavailable,
+                graphics?.version?.takeIf { it.isNotBlank() } ?: unavailable)
+            val captureRate = surfaceView.milkDropRenderer.currentCaptureSampleRate()
+            binding.engineAudioInfo.text = captureRate?.let {
+                getString(R.string.engine_capture_rate, it)
+            } ?: getString(R.string.engine_capture_inactive)
             binding.engineLiveInfo.postDelayed(this, 1_000)
         }
     }

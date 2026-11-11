@@ -620,6 +620,22 @@
                         android:textSize="13sp" />
 
                     <TextView
+                        android:id="@+id/engineGraphicsInfo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/overlay_content_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/engineAudioInfo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/overlay_content_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"

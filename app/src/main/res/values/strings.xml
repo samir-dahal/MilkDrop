@@ -1,6 +1,10 @@
 <resources>
     <string name="engine_info_title">Engine information</string>
     <string name="engine_app_version">MilkDrop %1$s</string>
+    <string name="engine_info_unavailable">Unavailable</string>
+    <string name="engine_graphics_info">GPU: %1$s\nGraphics: %2$s</string>
+    <string name="engine_capture_rate">Audio capture: %1$d Hz</string>
+    <string name="engine_capture_inactive">Audio capture: No active capture</string>
     <string name="engine_fps_value">%1$.1f FPS</string>
     <string name="engine_fps_measuring">Measuring FPS…</string>
     <string name="engine_live_info">%1$s ◉ projectM %2$s with MilkDrop patches</string>

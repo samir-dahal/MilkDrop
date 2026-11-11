@@ -1,6 +1,7 @@
 package com.milkdrop.visualizer.render
 
 import android.opengl.GLSurfaceView
+import android.opengl.GLES20
 import android.os.SystemClock
 import android.util.Log
 import com.milkdrop.visualizer.cast.VisualOutput
@@ -204,10 +205,27 @@ class MilkDropRenderer(
     /** Guards [handle] against being destroyed while the audio thread is mid-[feedPcm]. */
     private val pcmLock = Any()
 
+    data class GraphicsInfo(val gpu: String, val version: String)
+
+    @Volatile var graphicsInfo: GraphicsInfo? = null
+        private set
+    @Volatile private var captureSampleRateHz = 0
+    @Volatile private var lastCaptureTimeMs = 0L
+
+    /** The input format reported by arriving PCM, not the output device's format. */
+    fun currentCaptureSampleRate(): Int? = captureSampleRateHz.takeIf {
+        it > 0 && SystemClock.elapsedRealtime() - lastCaptureTimeMs < 2_000
+    }
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         // A second call means the EGL context was lost and recreated: every GL object the old
         // instance owned is gone, so rebuild projectM from scratch rather than rendering garbage.
         release()
+
+        graphicsInfo = GraphicsInfo(
+            GLES20.glGetString(GLES20.GL_RENDERER).orEmpty(),
+            GLES20.glGetString(GLES20.GL_VERSION).orEmpty(),
+        )
 
         handle = try {
             ProjectMBridge.nativeCreate()
@@ -424,6 +442,10 @@ class MilkDropRenderer(
         synchronized(pcmLock) {
             val currentHandle = handle
             if (currentHandle != 0L) {
+                if (frameCount > 0 && sampleRateHz > 0) {
+                    captureSampleRateHz = sampleRateHz
+                    lastCaptureTimeMs = SystemClock.elapsedRealtime()
+                }
                 ProjectMBridge.nativeFeedPcmInt16(currentHandle, samples, frameCount, channels,
                     sampleRateHz, snapshot, audioSensitivity)
             }
@@ -433,11 +455,15 @@ class MilkDropRenderer(
     /** Must run on the GL thread. */
     fun release() {
         frameRateReading = null
+        graphicsInfo = null
         performanceHints.release()
         val currentHandle = handle
         if (currentHandle != 0L) {
             // Clear the handle under the lock so no feedPcm call can still be using it once it's freed.
-            synchronized(pcmLock) { handle = 0L }
+            synchronized(pcmLock) {
+                handle = 0L
+                captureSampleRateHz = 0
+            }
             ProjectMBridge.nativeDestroy(currentHandle)
         }
     }
