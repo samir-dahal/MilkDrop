@@ -1,3 +1,33 @@
+# Disabled effects in legacy presets can divide a zero strength by a zero
+# distance. Keep that contribution zero instead of poisoning the whole frame.
+# Ordinary division, including nonzero numerators divided by zero, is unchanged.
+patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
+    [=[            if ((m_version == Version_110 || m_version == Version_120 || m_version == Version_100_ES) && binaryExpression->binaryOp == HLSLBinaryOp_Mod) {]=]
+    [=[            if (binaryExpression->binaryOp == HLSLBinaryOp_Div &&
+                binaryExpression->expressionType.baseType >= HLSLBaseType_Float &&
+                binaryExpression->expressionType.baseType <= HLSLBaseType_Float4) {
+                m_writer.Write("milkdrop_divide(");
+                OutputExpression(binaryExpression->expression1, &binaryExpression->expressionType);
+                m_writer.Write(", ");
+                OutputExpression(binaryExpression->expression2, &binaryExpression->expressionType);
+                m_writer.Write(")");
+            } else if ((m_version == Version_110 || m_version == Version_120 || m_version == Version_100_ES) && binaryExpression->binaryOp == HLSLBinaryOp_Mod) {]=]
+    [=[    // Output the special function used to access rows in a matrix.]=]
+    [=[    m_writer.WriteLine(0, "float milkdrop_divide(float x, float y) { return x == 0.0 && y == 0.0 ? 0.0 : x / y; }");
+    for (int n = 2; n <= 4; ++n) {
+        const std::string type = "vec" + std::to_string(n);
+        std::string body = type + " milkdrop_divide(" + type + " x, " + type + " y) { return " + type + "(";
+        for (int i = 0; i < n; ++i) {
+            if (i) body += ",";
+            const std::string channel(1, "xyzw"[i]);
+            body += "milkdrop_divide(x." + channel + ",y." + channel + ")";
+        }
+        body += "); }";
+        m_writer.WriteLine(0, "%s", body.c_str());
+    }
+    // Output the special function used to access rows in a matrix.]=]
+)
+
 # Parenthesized constructors are expressions, not C-style casts. Parse them via
 # the regular expression path so postfix swizzles and indexing bind after ')'.
 patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp

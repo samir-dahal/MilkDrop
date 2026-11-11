@@ -6,6 +6,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Prevent zero-strength shader effects from turning the composite frame black through
+  `0 / 0`, including Rainbow Spider's flash calculation.
+
 - Shrink unused release code and resources while retaining all four CPU architectures,
   the native rendering bridge and Google Cast integration.
 
