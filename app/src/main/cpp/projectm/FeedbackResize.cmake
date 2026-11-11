@@ -36,8 +36,7 @@ patch_projectm_source(Renderer src/libprojectM/Renderer/Framebuffer.cpp
     return true;]=]
 )
 
-# BeatDrop builds this frame's blur pyramid from the completed warp target.
-patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropPreset.cpp
-    [=[const auto warpedImage = m_framebuffer.GetColorAttachmentTexture(m_previousFrameBuffer, 0);]=]
-    [=[const auto warpedImage = m_framebuffer.GetColorAttachmentTexture(m_currentFrameBuffer, 0);]=]
-)
+# Keep the upstream blur source: the previous feedback image, including its
+# shapes and waves. BeatDrop's BlurPasses also samples VS0 (the input to warp),
+# even though its comment calls this the current post-warp frame. Sampling the
+# new warp target instead erases the blur signal in presets with `ret = 0`.

@@ -12,6 +12,8 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Fixed
 
+- Restore the previous-frame blur source used by BeatDrop, fixing missing fractal
+  feedback in Flexi's Fractal Remix Weed and Fractal Remix Rand Tex presets.
 - Support integer output exponents in scalar and vector shader `frexp()` calls,
   fixing the dark fallback in Silicon Life (Devolution Mix).
 - Prevent taps on the preset-list background from toggling the sidebar.
