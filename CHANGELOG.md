@@ -6,6 +6,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Restore packed 8-bit legacy decay for flame presets without changing custom
+  warp shader inputs or transition blending.
+
 - Recognize sampler identifiers without mistaking shader helper function names for
   textures, restoring Milksplat shaders that failed to compile or rendered black.
 

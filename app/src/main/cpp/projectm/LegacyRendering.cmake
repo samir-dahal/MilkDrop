@@ -299,3 +299,13 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader
     [=[MilkdropStaticShaders::Get()->GetPresetWarpVertexShader(),]=]
     [=[milkdrop::CompatibleWarpVertexShader(MilkdropStaticShaders::Get()->GetPresetWarpVertexShader()),]=]
 )
+
+# Decode packed legacy decay only in the fixed-function warp. Each preset keeps
+# its own decoded feedback; transition blending and custom shader inputs remain
+# owned by the existing renderer.
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.cpp
+    [=[#include "PerPixelMesh.hpp"]=]
+    [=[#include "PerPixelMesh.hpp"
+#include "LegacyDecay.hpp"]=]
+    [=[perPixelMeshShader->SetUniformFloat("decay", decay);]=]
+    [=[perPixelMeshShader->SetUniformFloat("decay", milkdrop::PackedLegacyDecay(*perFrameContext.decay));]=])
