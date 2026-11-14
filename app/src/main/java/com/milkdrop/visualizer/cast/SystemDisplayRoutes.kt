@@ -1,12 +1,13 @@
 package com.milkdrop.visualizer.cast
 
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.media.MediaRouter
 import android.view.Display
 
 /** Public platform routing API, including routes omitted by a vendor's AndroidX provider. */
 internal class SystemDisplayRoutes(private val context: Context) {
-    private val router = context.getSystemService(MediaRouter::class.java)
+    private val router = requireNotNull(ContextCompat.getSystemService(context, MediaRouter::class.java))
     private fun routes() = (0 until router.routeCount).map(router::getRouteAt)
     fun names(display: Display): List<String> {
         val matching = routes().filter { it !== router.defaultRoute &&

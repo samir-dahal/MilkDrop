@@ -1,6 +1,7 @@
 package com.milkdrop.visualizer.render
 
 import android.opengl.GLSurfaceView
+import android.opengl.GLES20
 import android.os.SystemClock
 import android.util.Log
 import com.milkdrop.visualizer.cast.VisualOutput
@@ -124,7 +125,11 @@ class MilkDropRenderer(
 
     /** Positions cover the whole visualization, including touches delivered to overlay controls. */
     fun updatePointer(x: Float, y: Float, down: Boolean, pressed: Boolean = false) {
-        pointer.updateAndGet { previous -> PointerState(x, y, down, previous.pressed || pressed || (down && !previous.down)) }
+        // AtomicReference.updateAndGet requires API 24. Keep the same atomic latch on API 21.
+        do {
+            val previous = pointer.get()
+            val next = PointerState(x, y, down, previous.pressed || pressed || (down && !previous.down))
+        } while (!pointer.compareAndSet(previous, next))
     }
 
     fun clearPointer() {
@@ -132,7 +137,10 @@ class MilkDropRenderer(
     }
 
     private fun applyPointer() {
-        val state = pointer.getAndUpdate { if (it.pressed) it.copy(pressed = false) else it }
+        var state: PointerState
+        do {
+            state = pointer.get()
+        } while (!pointer.compareAndSet(state, if (state.pressed) state.copy(pressed = false) else state))
         ProjectMBridge.nativeSetPointer(handle, state.x, state.y, state.down, state.pressed)
     }
 
@@ -204,10 +212,27 @@ class MilkDropRenderer(
     /** Guards [handle] against being destroyed while the audio thread is mid-[feedPcm]. */
     private val pcmLock = Any()
 
+    data class GraphicsInfo(val gpu: String, val version: String)
+
+    @Volatile var graphicsInfo: GraphicsInfo? = null
+        private set
+    @Volatile private var captureSampleRateHz = 0
+    @Volatile private var lastCaptureTimeMs = 0L
+
+    /** The input format reported by arriving PCM, not the output device's format. */
+    fun currentCaptureSampleRate(): Int? = captureSampleRateHz.takeIf {
+        it > 0 && SystemClock.elapsedRealtime() - lastCaptureTimeMs < 2_000
+    }
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         // A second call means the EGL context was lost and recreated: every GL object the old
         // instance owned is gone, so rebuild projectM from scratch rather than rendering garbage.
         release()
+
+        graphicsInfo = GraphicsInfo(
+            GLES20.glGetString(GLES20.GL_RENDERER).orEmpty(),
+            GLES20.glGetString(GLES20.GL_VERSION).orEmpty(),
+        )
 
         handle = try {
             ProjectMBridge.nativeCreate()
@@ -424,6 +449,10 @@ class MilkDropRenderer(
         synchronized(pcmLock) {
             val currentHandle = handle
             if (currentHandle != 0L) {
+                if (frameCount > 0 && sampleRateHz > 0) {
+                    captureSampleRateHz = sampleRateHz
+                    lastCaptureTimeMs = SystemClock.elapsedRealtime()
+                }
                 ProjectMBridge.nativeFeedPcmInt16(currentHandle, samples, frameCount, channels,
                     sampleRateHz, snapshot, audioSensitivity)
             }
@@ -433,11 +462,15 @@ class MilkDropRenderer(
     /** Must run on the GL thread. */
     fun release() {
         frameRateReading = null
+        graphicsInfo = null
         performanceHints.release()
         val currentHandle = handle
         if (currentHandle != 0L) {
             // Clear the handle under the lock so no feedPcm call can still be using it once it's freed.
-            synchronized(pcmLock) { handle = 0L }
+            synchronized(pcmLock) {
+                handle = 0L
+                captureSampleRateHz = 0
+            }
             ProjectMBridge.nativeDestroy(currentHandle)
         }
     }

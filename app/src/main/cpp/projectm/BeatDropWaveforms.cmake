@@ -58,6 +58,7 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/Waveforms/Circ
 } // namespace Waveforms]=]
     [=[    }
     m_wave1Vertices[m_samples] = m_wave1Vertices[0];
+    ++m_samples; // Include the closing vertex in smoothing, as MilkDrop does.
 }
 
 } // namespace Waveforms]=]

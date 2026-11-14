@@ -17,6 +17,12 @@ float _milkdrop_frexp(float x, out float e) {
     e = floor(log2(abs(x))) + 1;
     return (x / exp2(e - 1)) * 0.5;
 }
+float _milkdrop_frexp(float x, out int e) {
+    float exponent;
+    float mantissa = _milkdrop_frexp(x, exponent);
+    e = int(exponent);
+    return mantissa;
+}
 float _milkdrop_normalize(float x) { return x == 0 ? 0 : sign(x); }
 )";
     for (int size = 2; size <= 4; ++size) {
@@ -27,6 +33,9 @@ float _milkdrop_normalize(float x) { return x == 0 ? 0 : sign(x); }
             helpers += "m." + channel + " = _milkdrop_frexp(x." + channel + ", e." + channel + ");";
         }
         helpers += "return m; }\n";
+        const auto intType = "int" + std::to_string(size);
+        helpers += type + " _milkdrop_frexp(" + type + " x, out " + intType + " e) { " + type +
+            " exponent; " + type + " m = _milkdrop_frexp(x, exponent); e = " + intType + "(exponent); return m; }\n";
         helpers += type + " _milkdrop_normalize(" + type + " x) { float n = length(x); if (n == 0) return 0; return x / n; }\n";
     }
     for (const std::string base : {"float", "bool"}) {

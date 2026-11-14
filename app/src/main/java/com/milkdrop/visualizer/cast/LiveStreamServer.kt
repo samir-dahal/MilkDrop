@@ -19,7 +19,7 @@ internal class LiveStreamServer : Closeable {
     private var storedBytes = 0
     private var discontinuitiesRemoved = 0L
     private val socket = ServerSocket(0, 4)
-    private val clients = ConcurrentHashMap.newKeySet<Socket>()
+    private val clients = java.util.Collections.newSetFromMap(ConcurrentHashMap<Socket, Boolean>())
     private val workers = ThreadPoolExecutor(2, 3, 10, TimeUnit.SECONDS,
         ArrayBlockingQueue(8), { r -> Thread(r, "MilkDrop-cast-http").apply { isDaemon = true } })
     @Volatile private var closed = false

@@ -1,5 +1,6 @@
 package com.milkdrop.visualizer.cast
 
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
@@ -32,11 +33,11 @@ class DirectCastReceiver(
     private val onStopped: () -> Unit,
     private val onError: () -> Unit,
 ) : Closeable {
-    private val nsd = context.applicationContext.getSystemService(NsdManager::class.java)
+    private val nsd = requireNotNull(ContextCompat.getSystemService(context.applicationContext, NsdManager::class.java))
     private val identity = directCastIdentity(context)
     private val main = Handler(Looper.getMainLooper())
     private val active = AtomicReference<Peer?>()
-    private val sockets = ConcurrentHashMap.newKeySet<Socket>()
+    private val sockets = java.util.Collections.newSetFromMap(ConcurrentHashMap<Socket, Boolean>())
     private var registration: NsdManager.RegistrationListener? = null
     private var server: ServerSocket? = null
     @Volatile private var generation = 0
@@ -173,7 +174,7 @@ class DirectCastReceiver(
                         val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
                             setByteBuffer("csd-0", ByteBuffer.wrap(headers.sequence()))
                             setByteBuffer("csd-1", ByteBuffer.wrap(headers.picture()))
-                            setInteger(MediaFormat.KEY_PRIORITY, 0)
+                            if (Build.VERSION.SDK_INT >= 23) setInteger(MediaFormat.KEY_PRIORITY, 0)
                             if (Build.VERSION.SDK_INT >= 30 && codec.codecInfo
                                     .getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
                                     .isFeatureSupported(MediaCodecInfo.CodecCapabilities.FEATURE_LowLatency)) {

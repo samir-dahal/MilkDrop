@@ -28,7 +28,10 @@ connection also try 1080p first, then smaller frames if the sender's encoder can
 configure that mode. Receiver decoding limits still apply; these two paths do not
 negotiate decoder capabilities. A custom receiver that explicitly reports no Full HD
 support retains its lower-resolution modes.
-Android 9 remains supported, with codec/resolution fallbacks.
+Android 5.0 (API 21) and newer are supported, with codec/resolution fallbacks.
+Google Cast discovery also depends on compatible Google Play services being available.
+On Android 5–7.0, encoders use whole-second keyframe intervals; newer devices retain
+the shorter interval. Live Receiver requires an available AVC decoder.
 The phone's Quality setting scales the visualizer's render dimensions on casting paths
 as well as locally; mesh size remains independent. Encoded video dimensions are negotiated
 separately, so a lower-quality render can be scaled into a 1080p stream. A 1080p encoder

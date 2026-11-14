@@ -10,7 +10,7 @@
     android:focusable="true"
     android:clickable="true"
     android:descendantFocusability="beforeDescendants"
-    android:background="@drawable/remote_focus_background">
+    android:background="@drawable/preset_row_background">
 
     <!-- Name and folder; dimmed together when the preset is hidden. -->
     <LinearLayout
@@ -19,7 +19,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:orientation="vertical"
-        android:paddingVertical="10dp">
+        android:paddingTop="10dp" android:paddingBottom="10dp">
 
         <TextView
             android:id="@+id/presetName"
@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:textColor="#FFFFFF"
             android:textSize="15sp"
-            android:maxLines="1"
+            android:singleLine="true"
             android:ellipsize="middle" />
 
         <TextView
@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:textColor="#AAAAAA"
             android:textSize="12sp"
-            android:maxLines="1"
+            android:singleLine="true"
             android:ellipsize="start" />
 
     </LinearLayout>

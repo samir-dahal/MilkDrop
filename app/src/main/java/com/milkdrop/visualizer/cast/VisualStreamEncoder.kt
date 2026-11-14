@@ -58,12 +58,20 @@ internal class VisualStreamEncoder(
                     setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
                     setInteger(MediaFormat.KEY_BIT_RATE, capabilities.bitrateRange.clamp(CastEncodingPolicy.bitRate(mode.copy(fps = fps))))
                     setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-                    setFloat(MediaFormat.KEY_I_FRAME_INTERVAL, CastVideoTiming.KEY_FRAME_SECONDS)
+                    if (Build.VERSION.SDK_INT >= 25) {
+                        setFloat(MediaFormat.KEY_I_FRAME_INTERVAL, CastVideoTiming.KEY_FRAME_SECONDS)
+                    } else {
+                        // Older codecs require whole seconds for this key.
+                        setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,
+                            kotlin.math.ceil(CastVideoTiming.KEY_FRAME_SECONDS.toDouble()).toInt().coerceAtLeast(1))
+                    }
                     setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
                     if (realtime) {
-                        setInteger(MediaFormat.KEY_PRIORITY, 0)
-                        setInteger(MediaFormat.KEY_LATENCY, 0)
-                        setInteger(MediaFormat.KEY_OPERATING_RATE, fps)
+                        if (Build.VERSION.SDK_INT >= 23) {
+                            setInteger(MediaFormat.KEY_PRIORITY, 0)
+                            setInteger(MediaFormat.KEY_OPERATING_RATE, fps)
+                        }
+                        if (Build.VERSION.SDK_INT >= 26) setInteger(MediaFormat.KEY_LATENCY, 0)
                         if (Build.VERSION.SDK_INT >= 29) setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
                         if (codecCapabilities.encoderCapabilities.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)) {
                             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
@@ -116,8 +124,24 @@ internal class VisualStreamEncoder(
             codec.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0) })
         }
         try {
+            val bitrateRange = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities!!.bitrateRange
+            val nominalBitrate = bitrateRange.clamp(CastEncodingPolicy.bitRate(CastEncodingPolicy.Mode(width, height, framesPerSecond)))
+            val bitrate = LiveBitrateController(nominalBitrate, bitrateRange.clamp((nominalBitrate / 4).coerceAtLeast(1)))
+            var bitrateUpdatesSupported = true
             Process.setThreadPriority(Process.THREAD_PRIORITY_DISPLAY)
             while (running.get()) {
+                if (direct != null && bitrateUpdatesSupported) {
+                    val newRate = bitrate.update(System.nanoTime(), direct.consumeCongestion())
+                    if (newRate != null) {
+                        // Some vendor encoders reject live changes: keep the stream running.
+                        try {
+                            codec.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, newRate) })
+                        } catch (e: RuntimeException) {
+                            bitrateUpdatesSupported = false
+                            Log.i("VisualStreamEncoder", "Live bitrate adjustment unavailable", e)
+                        }
+                    }
+                }
                 if (syncRequested.getAndSet(false)) requestKeyFrame()
                 val index = codec.dequeueOutputBuffer(info, 20_000)
                 if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {

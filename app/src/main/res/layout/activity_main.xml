@@ -56,7 +56,7 @@
         android:layout_height="48dp"
         android:layout_gravity="top|end"
         android:layout_margin="16dp"
-        android:paddingHorizontal="16dp"
+        android:paddingLeft="16dp" android:paddingRight="16dp"
         android:gravity="center"
         android:orientation="horizontal"
         android:background="@drawable/cast_button_background"
@@ -102,8 +102,8 @@
         android:orientation="vertical"
         android:gravity="center"
         android:background="@color/overlay_bar"
-        android:paddingHorizontal="8dp"
-        android:paddingVertical="6dp"
+        android:paddingLeft="8dp" android:paddingRight="8dp"
+        android:paddingTop="6dp" android:paddingBottom="6dp"
         android:visibility="gone">
 
         <LinearLayout
@@ -127,7 +127,6 @@
             <TextView
                 android:id="@+id/btnShuffle"
                 style="@style/ControlButton"
-                android:background="@drawable/shuffle_button_background"
                 app:drawableTopCompat="@drawable/ic_shuffle"
                 android:text="@string/btn_shuffle"
                 android:textColor="@color/toggle_content"
@@ -241,7 +240,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="20dp"
+                android:paddingLeft="20dp" android:paddingRight="20dp"
                 android:paddingBottom="20dp">
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -325,6 +324,13 @@
                     android:textColor="@color/overlay_content_secondary" />
 
                 <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/slider_remote_hint"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
+
+                <TextView
                     style="@style/SettingLabel"
                     android:labelFor="@id/sliderMeshSizeX"
                     android:text="@string/setting_mesh_size" />
@@ -349,9 +355,8 @@
                         android:layout_width="0dp"
                         android:layout_height="48dp"
                         android:layout_weight="1"
-                        android:max="300"
-                        android:min="8"
-                        android:progress="32" />
+                        android:max="292"
+                        android:progress="24" />
 
                     <EditText
                         android:id="@+id/inputMeshSizeX"
@@ -388,9 +393,8 @@
                         android:layout_width="0dp"
                         android:layout_height="48dp"
                         android:layout_weight="1"
-                        android:max="300"
-                        android:min="8"
-                        android:progress="24" />
+                        android:max="292"
+                        android:progress="16" />
 
                     <EditText
                         android:id="@+id/inputMeshSizeY"
@@ -492,6 +496,14 @@
                     android:textSize="16sp" />
 
                 <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/swipe_gestures_description"
+                    android:textColor="@color/overlay_content_secondary"
+                    android:textSize="13sp" />
+
+                <TextView
                     android:id="@+id/audioSensitivityLabel"
                     style="@style/SettingLabel"
                     android:labelFor="@id/sliderAudioSensitivity"
@@ -590,11 +602,35 @@
                         android:textSize="16sp" />
 
                     <TextView
+                        android:id="@+id/engineAppVersion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/overlay_content"
+                        android:textSize="13sp" />
+
+                    <TextView
                         android:id="@+id/engineLiveInfo"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:textColor="@color/overlay_content"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/engineGraphicsInfo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/overlay_content_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/engineAudioInfo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/overlay_content_secondary"
                         android:textSize="13sp" />
 
                     <TextView
@@ -632,6 +668,7 @@
 
     <LinearLayout
         android:id="@+id/playlistPanel"
+        android:clickable="true"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
@@ -667,7 +704,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:gravity="center_vertical"
-                android:paddingHorizontal="10dp"
+                android:paddingLeft="10dp" android:paddingRight="10dp"
                 android:drawablePadding="6dp"
                 android:text="@string/playlist_favourites_only"
                 android:textSize="14sp"
@@ -695,8 +732,8 @@
             android:id="@+id/playlistResultsStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="12dp"
+            android:paddingLeft="16dp" android:paddingRight="16dp"
+            android:paddingTop="12dp" android:paddingBottom="12dp"
             android:textColor="@color/overlay_content"
             android:textSize="16sp"
             android:accessibilityLiveRegion="polite"

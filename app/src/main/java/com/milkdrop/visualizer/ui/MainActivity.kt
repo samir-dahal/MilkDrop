@@ -2,6 +2,7 @@ package com.milkdrop.visualizer.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.drawable.Animatable
@@ -91,6 +92,15 @@ class MainActivity : AppCompatActivity() {
             val measured = fps?.let { getString(R.string.engine_fps_value, it) }
                 ?: getString(R.string.engine_fps_measuring)
             binding.engineLiveInfo.text = getString(R.string.engine_live_info, measured, BuildConfig.PROJECTM_VERSION)
+            val graphics = surfaceView.milkDropRenderer.graphicsInfo
+            val unavailable = getString(R.string.engine_info_unavailable)
+            binding.engineGraphicsInfo.text = getString(R.string.engine_graphics_info,
+                graphics?.gpu?.takeIf { it.isNotBlank() } ?: unavailable,
+                graphics?.version?.takeIf { it.isNotBlank() } ?: unavailable)
+            val captureRate = surfaceView.milkDropRenderer.currentCaptureSampleRate()
+            binding.engineAudioInfo.text = captureRate?.let {
+                getString(R.string.engine_capture_rate, it)
+            } ?: getString(R.string.engine_capture_inactive)
             binding.engineLiveInfo.postDelayed(this, 1_000)
         }
     }
@@ -128,6 +138,7 @@ class MainActivity : AppCompatActivity() {
     private var graphicsBlocked = false
     private var remoteNavigation = false
     private var restoreControlsAfterPlaylist = false
+    private var restoreControlsAfterSettings = false
     private val consumedRemoteKeys = mutableSetOf<Int>()
     private var activeTouchPointer = -1
     private val pointerWindowOrigin = IntArray(2)
@@ -148,7 +159,7 @@ class MainActivity : AppCompatActivity() {
         override fun handleOnBackPressed() {
             when {
                 binding.playlistPanel.isVisible -> closePlaylistPanel()
-                binding.settingsSheet.isVisible -> closeSettingsSheet(showControls = true)
+                binding.settingsSheet.isVisible -> closeSettingsSheet()
                 else -> {
                     hideRemoteControls()
                 }
@@ -158,6 +169,11 @@ class MainActivity : AppCompatActivity() {
 
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            requestStorageAccessThenStartAudio()
+        }
+
+    private val storageAccessLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             startPersistedAudioSource()
         }
 
@@ -217,6 +233,10 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_unsupported_graphics)
             findViewById<TextView>(R.id.graphicsUnsupportedMessage).text =
                 getString(R.string.graphics_unsupported_message, graphics.version)
+            findViewById<View>(R.id.btnLiveReceiverUnsupported).setOnClickListener {
+                startActivity(Intent(this, LiveReceiverActivity::class.java))
+                finish()
+            }
             findViewById<View>(R.id.btnExitUnsupported).apply {
                 setOnClickListener { finish() }
                 requestFocus()
@@ -228,6 +248,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         settings = AppSettings(this)
+        if (!isTelevision()) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         // Two small files, read once here; writes go to the background executor.
         hadStorageAccess = hasAllFilesAccess()
         ratingsStore = PresetRatingsStore(
@@ -324,8 +345,8 @@ class MainActivity : AppCompatActivity() {
         configureTimingSpinner(binding.spinnerTransitionTime, R.array.transition_time_options, transitionTimeIndex)
         configureTimingSpinner(binding.spinnerFrameRate, R.array.frame_rate_options, fpsIndex)
         configureTimingSpinner(binding.spinnerQuality, R.array.quality_options, qualityIndex)
-        binding.sliderMeshSizeX.progress = settings.meshColumns
-        binding.sliderMeshSizeY.progress = settings.meshRows
+        binding.sliderMeshSizeX.progress = settings.meshColumns - MESH_SIZE_MIN
+        binding.sliderMeshSizeY.progress = settings.meshRows - MESH_SIZE_MIN
         binding.inputMeshSizeX.setText(settings.meshColumns.toString())
         binding.inputMeshSizeY.setText(settings.meshRows.toString())
         binding.groupAudioSource.check(AUDIO_INPUT_BUTTON_IDS.getValue(settings.audioInput))
@@ -390,9 +411,9 @@ class MainActivity : AppCompatActivity() {
     private fun onMeasuredRenderFps(fps: Int) {
         if (qualityIndex != QUALITY_AUTO || fps <= 0 || isDestroyed) return
         val target = expectedRenderFps()
-        // Keep the requested 50–60 band whenever attainable. Lower intentional caps
+        // Keep the requested 30–60 band whenever attainable. Lower intentional caps
         // need a proportional band, otherwise normal capped rendering looks like lag.
-        val lowerBound = if (target >= 50) 50 else
+        val lowerBound = if (target >= 30) 30 else
             (target * AUTO_QUALITY_DOWNGRADE_THRESHOLD).roundToInt()
         when {
             fps < lowerBound -> {
@@ -442,6 +463,7 @@ class MainActivity : AppCompatActivity() {
             settings.lastPresetPath = path
             runOnUiThread {
                 currentPresetPath = path
+                if (::presetAdapter.isInitialized) presetAdapter.updateCurrent(path)
                 updateFavouriteButton()
                 showPresetName(File(path).nameWithoutExtension)
             }
@@ -784,7 +806,8 @@ class MainActivity : AppCompatActivity() {
                 MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE,
                 MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE -> {
                     val down = event.buttonState and (MotionEvent.BUTTON_PRIMARY or MotionEvent.BUTTON_SECONDARY) != 0
-                    val pressed = event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
+                    val pressed = Build.VERSION.SDK_INT >= 23 &&
+                        event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS &&
                         event.actionButton and (MotionEvent.BUTTON_PRIMARY or MotionEvent.BUTTON_SECONDARY) != 0
                     sendPointer(event, 0, down, pressed)
                 }
@@ -862,7 +885,8 @@ class MainActivity : AppCompatActivity() {
         surfaceView.isFocusable = false // Remote focus belongs to the overlay controls.
         surfaceView.isSoundEffectsEnabled = false
         surfaceView.setOnClickListener {
-            if (binding.settingsSheet.isVisible) closeSettingsSheet(showControls = false) else toggleControlBar()
+            if (binding.playlistPanel.isVisible) return@setOnClickListener
+            if (binding.settingsSheet.isVisible) closeSettingsSheet() else toggleControlBar()
         }
         for (target in listOf<View>(surfaceView, binding.castStatus)) {
             target.isFocusable = false
@@ -899,6 +923,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupControlBar() {
+        listOf(binding.btnPrevious, binding.btnNext, binding.btnShuffle, binding.btnFavourite,
+            binding.btnPlaylist, binding.btnSettings, binding.btnMediaPrevious,
+            binding.btnMediaPlayPause, binding.btnMediaNext).forEach {
+            it.setBackgroundResource(R.drawable.sidebar_button_background)
+        }
         binding.btnNext.setOnClickListener {
             surfaceView.milkDropRenderer.requestNavigation(Navigation.Next)
         }
@@ -911,6 +940,8 @@ class MainActivity : AppCompatActivity() {
         binding.btnFavourite.setOnClickListener {
             val path = currentPresetPath ?: return@setOnClickListener
             ratings.toggleFavourite(path)
+            presetAdapter.refreshRatings(path)
+            if (favouritesOnly) scheduleSearch()
             updateFavouriteButton()
         }
         binding.btnMediaPrevious.setOnClickListener { dispatchMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }
@@ -949,7 +980,17 @@ class MainActivity : AppCompatActivity() {
             binding.sliderAudioSensitivity, binding.sliderFftShaderScaling, binding.sliderFftShaderNoiseFloor).forEach {
             it.setBackgroundResource(R.drawable.remote_focus_background)
         }
-        binding.btnCloseSettings.setOnClickListener { closeSettingsSheet(showControls = true) }
+        setupSliderCompanion(binding.sliderMeshSizeX, binding.inputMeshSizeX)
+        setupSliderCompanion(binding.sliderMeshSizeY, binding.inputMeshSizeY)
+        setupSliderCompanion(binding.sliderAudioSensitivity, binding.resetAudioSensitivity)
+        binding.sliderMeshSizeX.nextFocusDownId = R.id.sliderMeshSizeY
+        binding.inputMeshSizeX.nextFocusDownId = R.id.inputMeshSizeY
+        binding.sliderMeshSizeY.nextFocusUpId = R.id.sliderMeshSizeX
+        binding.inputMeshSizeY.nextFocusUpId = R.id.inputMeshSizeX
+        binding.inputMeshSizeY.nextFocusDownId = R.id.spinnerQuality
+        binding.resetAudioSensitivity.nextFocusDownId = R.id.sliderFftShaderScaling
+        binding.resetAudioSensitivity.nextFocusUpId = R.id.sliderAudioSensitivity
+        binding.btnCloseSettings.setOnClickListener { closeSettingsSheet() }
         binding.switchPresetNameDuringTransitions.setOnCheckedChangeListener { _, checked ->
             if (updatingControls) return@setOnCheckedChangeListener
             settings.showPresetNameDuringTransitions = checked
@@ -1010,10 +1051,10 @@ class MainActivity : AppCompatActivity() {
             applyQuality()
         }
         binding.sliderMeshSizeX.onUserProgress { columns ->
-            applyMeshSize(columns = columns)
+            applyMeshSize(columns = columns + MESH_SIZE_MIN)
         }
         binding.sliderMeshSizeY.onUserProgress { rows ->
-            applyMeshSize(rows = rows)
+            applyMeshSize(rows = rows + MESH_SIZE_MIN)
         }
         setupMeshSizeInput(binding.inputMeshSizeX) { columns -> applyMeshSize(columns = columns) }
         setupMeshSizeInput(binding.inputMeshSizeY) { rows -> applyMeshSize(rows = rows) }
@@ -1075,11 +1116,26 @@ class MainActivity : AppCompatActivity() {
     private fun syncMeshSizeControls(columns: Int, rows: Int) {
         val wasUpdating = updatingControls
         updatingControls = true
-        binding.sliderMeshSizeX.progress = columns
-        binding.sliderMeshSizeY.progress = rows
+        binding.sliderMeshSizeX.progress = columns - MESH_SIZE_MIN
+        binding.sliderMeshSizeY.progress = rows - MESH_SIZE_MIN
         if (!binding.inputMeshSizeX.hasFocus()) binding.inputMeshSizeX.setText(columns.toString())
         if (!binding.inputMeshSizeY.hasFocus()) binding.inputMeshSizeY.setText(rows.toString())
         updatingControls = wasUpdating
+    }
+
+    /** OK leaves slider adjustment for its adjacent value/reset control. */
+    private fun setupSliderCompanion(slider: SeekBar, companion: View) {
+        slider.nextFocusRightId = companion.id
+        companion.nextFocusLeftId = slider.id
+        slider.setOnKeyListener { _, key, event ->
+            if (key in setOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                    consumedRemoteKeys.add(key)
+                    companion.requestFocus()
+                }
+                true
+            } else false
+        }
     }
 
     private fun setupMeshSizeInput(input: EditText, apply: (Int) -> Unit) {
@@ -1088,22 +1144,16 @@ class MainActivity : AppCompatActivity() {
             apply(value ?: if (input === binding.inputMeshSizeX) settings.meshColumns else settings.meshRows)
         }
         input.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) commit() }
-        // Up/down remain available for moving through settings. Left/right adjust the
-        // focused value directly without requiring a remote's on-screen keyboard.
+        // Numeric entry remains available through OK/the on-screen keyboard.
+        // Arrows move between the field and slider instead of trapping focus.
         input.setOnKeyListener { _, keyCode, event ->
-            if (keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) {
-                false
-            } else {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
                 if (event.action == KeyEvent.ACTION_DOWN) {
-                    val current = input.text.toString().toIntOrNull()
-                        ?: if (input === binding.inputMeshSizeX) settings.meshColumns else settings.meshRows
-                    val next = (current + if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1)
-                        .coerceIn(MESH_SIZE_MIN, MESH_SIZE_MAX)
-                    input.setText(next.toString())
-                    apply(next)
+                    commit()
+                    (if (input === binding.inputMeshSizeX) binding.sliderMeshSizeX else binding.sliderMeshSizeY).requestFocus()
                 }
                 true
-            }
+            } else false
         }
         input.setOnEditorActionListener { _, actionId, _ ->
             if (actionId != EditorInfo.IME_ACTION_DONE) return@setOnEditorActionListener false
@@ -1136,10 +1186,12 @@ class MainActivity : AppCompatActivity() {
         val fps = FrameRates.options[fpsIndex]
         surfaceView.targetFps = fps
         val display = surfaceView.display ?: windowManager.defaultDisplay
-        val mode = display.mode
-        val highest = display.supportedModes.filter {
-            it.physicalWidth == mode.physicalWidth && it.physicalHeight == mode.physicalHeight
-        }.maxOfOrNull { it.refreshRate } ?: mode.refreshRate
+        val highest = if (Build.VERSION.SDK_INT >= 23) {
+            val mode = display.mode
+            display.supportedModes.filter {
+                it.physicalWidth == mode.physicalWidth && it.physicalHeight == mode.physicalHeight
+            }.maxOfOrNull { it.refreshRate } ?: mode.refreshRate
+        } else display.refreshRate
         window.attributes = window.attributes.apply {
             // Ask for high-refresh modes without changing screen resolution or slowing UI
             // to 24/30 Hz. Android still makes the final choice based on device policy.
@@ -1167,8 +1219,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openSettingsSheet() {
+        if (!binding.settingsSheet.isVisible) restoreControlsAfterSettings = binding.controlBar.isVisible
         binding.controlBar.isVisible = false
         binding.settingsSheet.isVisible = true
+        binding.engineAppVersion.text = getString(R.string.engine_app_version, BuildConfig.VERSION_NAME)
         binding.engineUpstreamInfo.text = getString(R.string.engine_upstream_info,
             BuildConfig.PROJECTM_VERSION, BuildConfig.PROJECTM_COMMIT)
         binding.engineLiveInfo.removeCallbacks(refreshSettingsInfo)
@@ -1179,7 +1233,8 @@ class MainActivity : AppCompatActivity() {
         updateTopLabel()
     }
 
-    private fun closeSettingsSheet(showControls: Boolean) {
+    private fun closeSettingsSheet() {
+        val showControls = restoreControlsAfterSettings
         binding.engineLiveInfo.removeCallbacks(refreshSettingsInfo)
         binding.settingsSheet.isVisible = false
         binding.controlBar.isVisible = showControls
@@ -1191,12 +1246,14 @@ class MainActivity : AppCompatActivity() {
     private fun setupPlaylistPanel() {
         binding.playlistRecyclerView.layoutManager = LinearLayoutManager(this)
         presetAdapter = PresetListAdapter(
-            ratings,
+            ratings = { ratings },
+            onHeaderFocus = { search ->
+                if (search) binding.playlistSearch.requestFocus() else binding.btnClosePlaylist.requestFocus()
+            },
             onPresetClick = { entry ->
-                if (entry.playlistIndex != null) {
+                if (!ratings.isHidden(entry.path)) {
                     surfaceView.milkDropRenderer.requestNavigation(Navigation.JumpTo(entry.path))
                 }
-                closePlaylistPanel()
             },
             onFavouriteToggled = { entry ->
                 ratings.toggleFavourite(entry.path)
@@ -1218,6 +1275,15 @@ class MainActivity : AppCompatActivity() {
         }
         updateFavouritesOnlyButton()
         binding.playlistSearch.doAfterTextChanged { scheduleSearch() }
+        binding.btnClosePlaylist.setOnKeyListener { _, key, event ->
+            if (key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    presetAdapter.focusLastRow(binding.playlistRecyclerView, 0)
+                    consumedRemoteKeys.add(key)
+                }
+                true
+            } else false
+        }
         binding.playlistSearch.setOnKeyListener { _, key, event ->
             val keyboardVisible = ViewCompat.getRootWindowInsets(binding.playlistSearch)
                 ?.isVisible(WindowInsetsCompat.Type.ime()) == true
@@ -1225,6 +1291,8 @@ class MainActivity : AppCompatActivity() {
                 (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)) {
                 // EditText otherwise consumes these arrows for its cursor, trapping header focus.
                 if (key == KeyEvent.KEYCODE_DPAD_RIGHT) binding.btnFavouritesOnly.requestFocus()
+                else presetAdapter.focusLastRow(binding.playlistRecyclerView, 2)
+                consumedRemoteKeys.add(key)
                 true
             } else false
         }
@@ -1407,7 +1475,7 @@ class MainActivity : AppCompatActivity() {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 remoteNavigation = true
                 if (binding.playlistPanel.isVisible) closePlaylistPanel()
-                if (binding.settingsSheet.isVisible) closeSettingsSheet(true) else openSettingsSheet()
+                if (binding.settingsSheet.isVisible) closeSettingsSheet() else openSettingsSheet()
             }
             return true
         }
@@ -1416,13 +1484,18 @@ class MainActivity : AppCompatActivity() {
 
     /** Sends a media key to whichever app is playing, as headset buttons would. */
     private fun dispatchMediaKey(keyCode: Int) {
-        val audioManager = getSystemService(AudioManager::class.java)
+        val audioManager = requireNotNull(ContextCompat.getSystemService(this, AudioManager::class.java))
         val eventTime = SystemClock.uptimeMillis()
         audioManager.dispatchMediaKeyEvent(KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, keyCode, 0))
         audioManager.dispatchMediaKeyEvent(KeyEvent(eventTime, eventTime, KeyEvent.ACTION_UP, keyCode, 0))
     }
 
     private fun requestPermissionsThenStartAudio() {
+        // Android 5 grants these manifest permissions at install time.
+        if (Build.VERSION.SDK_INT < 23) {
+            requestStorageAccessThenStartAudio()
+            return
+        }
         val needed = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED
@@ -1440,20 +1513,34 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess()) {
-            startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:$packageName"),
-                )
-            )
-        }
-
         if (needed.isNotEmpty()) {
             permissionsLauncher.launch(needed.toTypedArray())
         } else {
-            startPersistedAudioSource()
+            requestStorageAccessThenStartAudio()
         }
+    }
+
+    private fun requestStorageAccessThenStartAudio() {
+        if (isDestroyed) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !hasAllFilesAccess()) {
+            // TV firmware may omit one or both special-access screens. Never let
+            // that abort startup or launch it on top of a runtime permission dialog.
+            val destinations = listOf(
+                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")),
+                Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")),
+            )
+            for (destination in destinations) {
+                try {
+                    storageAccessLauncher.launch(destination)
+                    return
+                } catch (e: RuntimeException) {
+                    Log.i(TAG, "Storage permission screen unavailable: ${destination.action}", e)
+                }
+            }
+            Toast.makeText(this, R.string.presets_storage_unavailable, Toast.LENGTH_LONG).show()
+        }
+        startPersistedAudioSource()
     }
 
     private fun startPersistedAudioSource() = startAudioInput(settings.audioInput)
@@ -1556,10 +1643,10 @@ class MainActivity : AppCompatActivity() {
         const val MESH_SIZE_MAX = 300
         // Samples average roughly one second. Hold quality through brief dips and the
         // near-target band; only sustained shortfall should lower the resolution.
-        // At 60 Hz: two samples below 50 FPS lower one tier, 50–59 holds,
-        // and a sample at 60 FPS allows one higher tier per second.
-        const val AUTO_QUALITY_DOWNGRADE_THRESHOLD = 50f / 60f
-        const val AUTO_QUALITY_UPGRADE_THRESHOLD = 1.0f
+        // At 60 Hz: two samples below 30 FPS lower one tier, 30–58 holds,
+        // and a sample at approximately 59 FPS allows one higher tier per second.
+        const val AUTO_QUALITY_DOWNGRADE_THRESHOLD = 30f / 60f
+        const val AUTO_QUALITY_UPGRADE_THRESHOLD = 59f / 60f
         const val AUTO_QUALITY_DOWNGRADE_SAMPLES = 2
         const val AUTO_QUALITY_UPGRADE_SAMPLES = 1
 

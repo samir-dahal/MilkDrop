@@ -1,11 +1,16 @@
 <resources>
     <string name="engine_info_title">Engine information</string>
+    <string name="engine_app_version">MilkDrop %1$s</string>
+    <string name="engine_info_unavailable">Unavailable</string>
+    <string name="engine_graphics_info">GPU: %1$s\nGraphics: %2$s</string>
+    <string name="engine_capture_rate">Audio capture: %1$d Hz</string>
+    <string name="engine_capture_inactive">Audio capture: No active capture</string>
     <string name="engine_fps_value">%1$.1f FPS</string>
     <string name="engine_fps_measuring">Measuring FPS…</string>
     <string name="engine_live_info">%1$s ◉ projectM %2$s with MilkDrop patches</string>
-    <string name="engine_patch_info">MilkDrop uses a customized projectM engine to run MilkDrop presets. Its patches improve BeatDrop compatibility for waveforms, FFT shader functions, accurate beat detection, textures, preset variables and pixel alignment, and add date/time and touch input.</string>
-    <string name="engine_upstream_info">Upstream master version: %1$s ◉ Commit:\n%2$s</string>
-    <string name="engine_snapshot_description">FPS shows how many frames the visualizer renders each second; it may differ from the frame-rate setting and the TV’s playback rate. The version and commit identify the source bundled with this app, rather than the latest online release. Engine updates arrive with app updates.</string>
+    <string name="engine_patch_info">MilkDrop runs presets using projectM, with patches to bring their appearance and audio response closer to MilkDrop and BeatDrop. These improve waveforms, beat detection, FFT shader functions, textures, preset variables and pixel alignment. The engine also includes shape drawing optimizations, extended shader functions, date and time variables, and mouse and touch input.</string>
+    <string name="engine_upstream_info">Bundled upstream version: %1$s ◉ Commit:\n%2$s</string>
+    <string name="engine_snapshot_description">FPS is the measured rendering rate, not the selected frame-rate limit or the playback rate on a casting receiver. The version and commit identify the upstream projectM source bundled with this app; MilkDrop’s patches are applied on top. Engine updates come with app updates.</string>
     <string name="cast_start">Cast</string>
     <string name="cast_live_device">%1$s (MilkDrop Live)</string>
     <string name="cast_receiving">Receiving visuals…</string>
@@ -29,7 +34,7 @@
     <string name="shuffle_enabled">Shuffle on</string>
     <string name="shuffle_disabled">Shuffle off</string>
     <string name="graphics_unsupported_title">Graphics support required</string>
-    <string name="graphics_unsupported_message">This device reports %1$s, but MilkDrop needs a working OpenGL ES 3.0 graphics context. OpenGL ES 2.0 devices cannot run this projectM renderer. Audio and storage permissions cannot enable the missing graphics features. You can connect a compatible Android TV device to a projector by HDMI.</string>
+    <string name="graphics_unsupported_message">This device reports %1$s, but MilkDrop needs a working OpenGL ES 3.0 graphics context. OpenGL ES 2.0 devices cannot run this projectM renderer. Audio and storage permissions cannot enable the missing graphics features. Choose Live Receiver to receive visuals rendered on another device instead or you can connect a compatible Android TV device to a projector by HDMI..</string>
     <string name="close_app">Close app</string>
     <string name="app_name">MilkDrop</string>
 
@@ -113,7 +118,7 @@
     <string name="quality_high">High</string>
     <string name="quality_very_high">Very high</string>
     <string name="quality_ultra_high">Ultra high</string>
-    <string name="quality_auto_description">Auto respects your frame-rate setting and adjusts resolution around 50–60 FPS. For limits below 50 FPS, the range scales down to match. Currently using %1$s (%2$d%% of display width and height). Mesh size stays unchanged.</string>
+    <string name="quality_auto_description">Auto respects your frame-rate setting and holds resolution between 30 and approximately 59 FPS. Below 30 FPS it lowers quality; near 59–60 FPS it can raise quality. Lower frame-rate limits reduce the thresholds to match. Currently using %1$s (%2$d%% of display width and height). Mesh size stays unchanged.</string>
     <string name="quality_fixed_description">%1$s renders at %2$d%% of display resolution. Mesh size stays unchanged.</string>
     <string name="setting_audio_source">Audio source</string>
     <string name="audio_source_mic">Microphone</string>
@@ -158,6 +163,11 @@
     <string name="presets_need_access">Allow All files access so the app can read MilkDropApp/presets.</string>
     <string name="presets_storage_unavailable">Unable to create the presets or textures folder. Check storage access and available space.</string>
     <string name="setting_swipe_gestures">Swipe gestures</string>
+    <string name="swipe_gestures_description">Swipe left for the next preset, right for the previous preset, up to open the preset list, or down to turn shuffle on or off. Swipe on the visuals with the sidebar shown or hidden. Gestures are paused while Settings or the preset list is open.</string>
     <string name="reset_audio_sensitivity">Reset</string>
     <string name="reset_audio_sensitivity_description">Reset audio sensitivity to 1.0×</string>
+    <string name="slider_remote_hint">Remote: Left/Right adjusts the slider. Press OK to reach the number field or Reset; Up/Down moves through settings.</string>
+    <string name="switch_live_receiver">Switch to Live Receiver</string>
+    <string name="receiver_only_waiting">Waiting for a device to connect\nOpen MilkDrop on your phone or tablet and select this device (MilkDrop Live) from Cast.\n\nPress OK or Back to close.</string>
+    <string name="receiver_only_connecting">Connecting to %1$s…</string>
 </resources>

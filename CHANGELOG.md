@@ -4,6 +4,111 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ## [Unreleased]
 
+### Changed
+
+- Restore packed 8-bit legacy decay for flame presets without changing custom
+  warp shader inputs or transition blending.
+
+- Recognize sampler identifiers without mistaking shader helper function names for
+  textures, restoring Milksplat shaders that failed to compile or rendered black.
+
+- Support HLSL remainder assignment (`%=`), restoring composite shaders that
+  previously failed to load, including Sam Gillman's Strobing Lights.
+
+- Prevent zero-strength shader effects from turning the composite frame black through
+  `0 / 0`, including Rainbow Spider's flash calculation.
+
+- Shrink unused release code and resources while retaining all four CPU architectures,
+  the native rendering bridge and Google Cast integration.
+
+- Lower the minimum Android version to Android 5.0 (API 21), with legacy audio,
+  service lookup, pointer and casting fallbacks. Local visualization still requires
+  OpenGL ES 3.0; stereo Internal capture remains Android 10+.
+
+- Show the GPU, OpenGL ES driver version and live audio capture sample rate in
+  Engine information; stop displaying the rate when capture becomes inactive.
+- Restore the previous sidebar visibility when Settings is dismissed, including
+  outside taps in landscape, Close and Back.
+- Explain swipe controls in Settings and show the MilkDrop app version above engine FPS.
+
+### Fixed
+
+- Restore the previous-frame blur source used by BeatDrop, fixing missing fractal
+  feedback in Flexi's Fractal Remix Weed and Fractal Remix Rand Tex presets.
+- Support integer output exponents in scalar and vector shader `frexp()` calls,
+  fixing the dark fallback in Silicon Life (Devolution Mix).
+- Prevent taps on the preset-list background from toggling the sidebar.
+
+## [2.2.0] - 2026-11-10
+
+### Changed
+
+- Refine Settings engine information, including compatibility patches, shape drawing
+  optimizations, measured FPS and the bundled upstream source.
+
+### Fixed
+
+- Stream shape fills and source-over borders through shared geometry uploads while
+  preserving each instance's fill/border order and all thick-outline passes; retain
+  the existing batching path for shapes that start in additive mode.
+- Reuse unchanged shape uniforms and exact polygon trigonometry; retain every
+  instance's equation execution, memory writes, packed colors and texture behavior.
+
+- Replace per-instance vertex resizing with C++14-compatible batching of consecutive
+  compatible shape fills, including textured fills, and additive borders. Preserve
+  source-over border order, sampler/color compatibility and equation/memory side
+  effects; bound temporary batch storage.
+- Remove the orientation selector and follow system rotation in all four directions.
+- Allow Auto quality upgrades near 59 FPS so 60 Hz displays can recover resolution.
+
+- Hold Auto quality at 30–60 FPS, lowering resolution after sustained readings below
+  30 FPS and allowing upgrades above 60 FPS while respecting the selected FPS limit.
+
+- Build blur feedback from the current post-warp image, following BeatDrop's pass
+  order and correcting excessive feedback in presets such as Digitally Frosted.
+- Preserve feedback textures when manual or Auto quality changes render resolution.
+- Skip uploads and drawing for zero-radius shapes without visible borders while
+  retaining every instance's equations and memory writes.
+
+- Keep Favourite and Hide icon states independent of the playing-row highlight,
+  use current ratings after permission changes, and retain the open list/focus
+  when toggling presets. Add explicit remote row/header traversal and preserve
+  the focused button column when moving between preset rows.
+
+- Restore the playing preset's row highlight and update it live without moving
+  the list's scroll position or focus. Keep the preset list open after selection.
+
+- Restore mouse-hover and touch-press highlights on sidebar and media buttons,
+  keeping idle backgrounds transparent and remote focus visibly bordered.
+
+- Include the circular waveform's closing vertex in smoothing, matching
+  MilkDrop's complete loop instead of omitting the last segment.
+
+- Restore full waveform opacity above equal volume thresholds, matching
+  BeatDrop saturation instead of retaining a faint base alpha. This restores
+  circular waves and their feedback detail in Flexi presets such as Julia Burst,
+  Dawn Has Broken and The Way It's Meant to Be Played. Keep exact-threshold and
+  zero-alpha cases finite, without changing normal or reversed thresholds.
+
+- Offer Close and Switch to Live Receiver on devices without OpenGL ES 3.
+  Receiver-only mode waits for a phone/tablet, returns to waiting after casting
+  stops, and exits with OK/Back only while waiting. Video decoding does not
+  initialize projectM or require audio/storage permissions.
+
+- Use the supplied TV launcher banner, keep mobile sidebar buttons transparent,
+  and show a consistent filled focus border on TV, including Shuffle.
+- Request startup permissions sequentially and fall back safely when a TV does
+  not provide the app-specific storage permission screen.
+- Let remote OK move from mesh/audio sliders to numeric entry or Reset, with
+  explicit return navigation and no accidental activation on key release.
+- Adapt direct Live Receiver encoder bitrate to congestion and recover detail
+  gradually, without accumulating a video backlog or changing resolution/FPS.
+
+- Restore visible waveforms in LuxXx's "It Speaks Thru Me i (twitchy mix)" and
+  Pithlit & Illusion's "Speaker in the Night". Match MilkDrop's volume-opacity
+  calculation for descending thresholds and alpha values above one, while
+  preserving waveform-mode opacity scaling.
+
 ## [2.1.0] - 2026-11-04
 
 Includes everything from 2.0.0 below, which was never released on its own.
@@ -79,6 +184,11 @@ in [#3](https://github.com/samir-dahal/MilkDrop/pull/3). Thank you!
 
 ### Fixed
 
+- Parse parenthesized HLSL constructors through the expression path, preserving
+  swizzles and indexing. Restore Altar to a Shadow Eminence's composite shader.
+- Use BeatDrop-style smoothed frame timing for beat-variable attack/release and
+  reference averages, reducing envelope changes caused by uneven frames and pauses.
+  Preserve the existing frequency bands and FFT mapping.
 - Preserve empty shader defines without consuming the next line, restoring
   Heartfelt's post-processing flags, color treatment, and animation fades.
 - Preserve HLSL signed floating-point remainder for `%` and `fmod()`, correcting
@@ -256,6 +366,7 @@ in [#3](https://github.com/samir-dahal/MilkDrop/pull/3). Thank you!
 First build: projectM 4.1.7 visualizer with internal-audio and microphone capture, preset list
 with search, and tuned frame pacing for the Galaxy F15.
 
-[Unreleased]: https://github.com/samir-dahal/MilkDrop/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/samir-dahal/MilkDrop/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/samir-dahal/MilkDrop/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/samir-dahal/MilkDrop/compare/v1.1.0...v2.1.0
 [1.1.0]: https://github.com/samir-dahal/MilkDrop/compare/5c195a4...v1.1.0
