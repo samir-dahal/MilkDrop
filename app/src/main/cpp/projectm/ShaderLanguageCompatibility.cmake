@@ -205,3 +205,20 @@ patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLTree.cpp
     [=[    for (auto* init = node->initializationWithoutType; init; init = init->nextExpression)
         VisitExpression(init);]=]
 )
+
+# Texture names are identifiers, not substrings of helper function names.
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader.cpp
+    [=[#include <regex>]=] [=[#include <regex>
+#include <cctype>]=]
+    [=[        found += 8;
+        size_t const end = stripped.find_first_of(" ;,\n\r)", found);]=]
+    [=[        const size_t tokenStart = found;
+        found += 8;
+        if (tokenStart > 0 && (std::isalnum(static_cast<unsigned char>(stripped[tokenStart - 1])) || stripped[tokenStart - 1] == '_')) {
+            found = stripped.find("sampler_", found);
+            continue;
+        }
+        size_t const end = stripped.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_", found);]=]
+    [=[            if (sampler != "state")]=]
+    [=[            const size_t next = stripped.find_first_not_of(" \t\r\n", end);
+            if (sampler != "state" && (next == std::string::npos || stripped[next] != '('))]=])

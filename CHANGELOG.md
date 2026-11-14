@@ -6,6 +6,9 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Recognize sampler identifiers without mistaking shader helper function names for
+  textures, restoring Milksplat shaders that failed to compile or rendered black.
+
 - Support HLSL remainder assignment (`%=`), restoring composite shaders that
   previously failed to load, including Sam Gillman's Strobing Lights.
 
