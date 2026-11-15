@@ -216,12 +216,15 @@ class MilkDropRenderer(
 
     @Volatile var graphicsInfo: GraphicsInfo? = null
         private set
-    @Volatile private var captureSampleRateHz = 0
-    @Volatile private var lastCaptureTimeMs = 0L
+    data class CaptureFormat(val sampleRateHz: Int, val channels: Int, val bitsPerSample: Int, val receivedAtMs: Long) {
+        val bitrateKbps: Double get() = sampleRateHz.toDouble() * channels * bitsPerSample / 1_000
+    }
 
-    /** The input format reported by arriving PCM, not the output device's format. */
-    fun currentCaptureSampleRate(): Int? = captureSampleRateHz.takeIf {
-        it > 0 && SystemClock.elapsedRealtime() - lastCaptureTimeMs < 2_000
+    @Volatile private var captureFormat: CaptureFormat? = null
+
+    /** Source PCM format, including the 8-bit Visualizer waveform before expansion to shorts. */
+    fun currentCaptureFormat(): CaptureFormat? = captureFormat?.takeIf {
+        SystemClock.elapsedRealtime() - it.receivedAtMs < 2_000
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
@@ -449,9 +452,9 @@ class MilkDropRenderer(
         synchronized(pcmLock) {
             val currentHandle = handle
             if (currentHandle != 0L) {
-                if (frameCount > 0 && sampleRateHz > 0) {
-                    captureSampleRateHz = sampleRateHz
-                    lastCaptureTimeMs = SystemClock.elapsedRealtime()
+                if (frameCount > 0 && sampleRateHz > 0 && channels > 0) {
+                    captureFormat = CaptureFormat(sampleRateHz, channels, if (snapshot) 8 else 16,
+                        SystemClock.elapsedRealtime())
                 }
                 ProjectMBridge.nativeFeedPcmInt16(currentHandle, samples, frameCount, channels,
                     sampleRateHz, snapshot, audioSensitivity)
@@ -469,7 +472,7 @@ class MilkDropRenderer(
             // Clear the handle under the lock so no feedPcm call can still be using it once it's freed.
             synchronized(pcmLock) {
                 handle = 0L
-                captureSampleRateHz = 0
+                captureFormat = null
             }
             ProjectMBridge.nativeDestroy(currentHandle)
         }

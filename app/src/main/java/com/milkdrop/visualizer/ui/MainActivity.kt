@@ -91,15 +91,20 @@ class MainActivity : AppCompatActivity() {
             val fps = surfaceView.milkDropRenderer.currentFramesPerSecond()
             val measured = fps?.let { getString(R.string.engine_fps_value, it) }
                 ?: getString(R.string.engine_fps_measuring)
-            binding.engineLiveInfo.text = getString(R.string.engine_live_info, measured, BuildConfig.PROJECTM_VERSION)
+            binding.engineLiveInfo.text = getString(R.string.engine_live_info, measured,
+                BuildConfig.PROJECTM_VERSION, BuildConfig.PROJECTM_EVAL_VERSION)
             val graphics = surfaceView.milkDropRenderer.graphicsInfo
             val unavailable = getString(R.string.engine_info_unavailable)
+            val displaySize = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.getRealMetrics(displaySize)
             binding.engineGraphicsInfo.text = getString(R.string.engine_graphics_info,
+                displaySize.widthPixels, displaySize.heightPixels,
                 graphics?.gpu?.takeIf { it.isNotBlank() } ?: unavailable,
                 graphics?.version?.takeIf { it.isNotBlank() } ?: unavailable)
-            val captureRate = surfaceView.milkDropRenderer.currentCaptureSampleRate()
-            binding.engineAudioInfo.text = captureRate?.let {
-                getString(R.string.engine_capture_rate, it)
+            val captureFormat = surfaceView.milkDropRenderer.currentCaptureFormat()
+            binding.engineAudioInfo.text = captureFormat?.let {
+                getString(R.string.engine_capture_format, it.bitrateKbps, it.sampleRateHz, it.bitsPerSample, it.channels)
             } ?: getString(R.string.engine_capture_inactive)
             binding.engineLiveInfo.postDelayed(this, 1_000)
         }
@@ -185,13 +190,7 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             playbackConsentPending = false
             if (result.resultCode != RESULT_OK || result.data == null) {
-                settings.stereoInternalAudio = false
-                if (::binding.isInitialized) {
-                    val wasUpdating = updatingControls
-                    updatingControls = true
-                    binding.switchStereoInternalAudio.isChecked = false
-                    updatingControls = wasUpdating
-                }
+                disableStereoInternalAudio()
                 if (::audioCaptureManager.isInitialized) releasePlaybackAudioSession()
             }
             if (isDestroyed || receivingLive || settings.audioInput == AudioInput.MIC) return@registerForActivityResult
@@ -207,6 +206,10 @@ class MainActivity : AppCompatActivity() {
                         startPersistedAudioSource()
                     }
                 }, ended = {
+                    // An obsolete session must not disable a newly opened one.
+                    if (playbackAudioSession !== session) return@open
+                    playbackAudioSession = null
+                    disableStereoInternalAudio()
                     if (::audioCaptureManager.isInitialized) audioCaptureManager.setPlaybackProjection(null)
                     if (!isDestroyed && !receivingLive) {
                         if (foreground) startPersistedAudioSource() else resumePlaybackAudio = true
@@ -678,8 +681,13 @@ class MainActivity : AppCompatActivity() {
                 left = barPadding.left + bars.left, right = barPadding.right + bars.right,
                 bottom = barPadding.bottom + bars.bottom,
             )
+            // A centered sheet may be entirely clear of the screen's side bars and cutouts.
+            val sheetWidth = binding.settingsSheet.layoutParams.width.takeIf { it > 0 } ?: binding.root.width
+            val sideGap = ((binding.root.width - sheetWidth) / 2).coerceAtLeast(0)
             binding.settingsSheet.updatePadding(
-                left = sheetPadding.left + bars.left, right = sheetPadding.right + bars.right,
+                left = sheetPadding.left + (bars.left - sideGap).coerceAtLeast(0),
+                top = sheetPadding.top + bars.top,
+                right = sheetPadding.right + (bars.right - sideGap).coerceAtLeast(0),
                 bottom = sheetPadding.bottom + bars.bottom,
             )
             binding.playlistPanel.updatePadding(
@@ -737,8 +745,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
         binding.settingsSheet.updateLayoutParams<FrameLayout.LayoutParams> {
-            width = if (landscape) (LANDSCAPE_SHEET_WIDTH_DP * density).toInt() else ViewGroup.LayoutParams.MATCH_PARENT
+            width = if (landscape) minOf((LANDSCAPE_SHEET_WIDTH_DP * density).toInt(),
+                resources.displayMetrics.widthPixels) else ViewGroup.LayoutParams.MATCH_PARENT
+            height = if (landscape) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
         }
+        binding.settingsScroll.updateLayoutParams<LinearLayout.LayoutParams> {
+            height = if (landscape) 0 else ViewGroup.LayoutParams.WRAP_CONTENT
+            weight = if (landscape) 1f else 0f
+        }
+        ViewCompat.requestApplyInsets(binding.root)
     }
 
     override fun onResume() {
@@ -1599,6 +1614,21 @@ class MainActivity : AppCompatActivity() {
         return started
     }
 
+    /** Revoked or declined capture access also turns off the persisted stereo option. */
+    private fun disableStereoInternalAudio() {
+        settings.stereoInternalAudio = false
+        playbackConsentRequested = false
+        if (::binding.isInitialized) {
+            val wasUpdating = updatingControls
+            updatingControls = true
+            try {
+                binding.switchStereoInternalAudio.isChecked = false
+            } finally {
+                updatingControls = wasUpdating
+            }
+        }
+    }
+
     private fun releasePlaybackAudioSession() {
         audioCaptureManager.setPlaybackProjection(null)
         playbackAudioSession?.close()
@@ -1623,7 +1653,7 @@ class MainActivity : AppCompatActivity() {
         const val PRESET_NAME_FLASH_MS = 2000L
         const val DIVIDER_GAP_DP = 4
         const val LANDSCAPE_DIVIDER_HEIGHT_DP = 32
-        const val LANDSCAPE_SHEET_WIDTH_DP = 480
+        const val LANDSCAPE_SHEET_WIDTH_DP = 560
 
         // 0 = uncapped ("Max"). Index 0 (30fps) is the default performance-friendly setting.
 

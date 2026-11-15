@@ -2,12 +2,12 @@
     <string name="engine_info_title">Engine information</string>
     <string name="engine_app_version">MilkDrop %1$s</string>
     <string name="engine_info_unavailable">Unavailable</string>
-    <string name="engine_graphics_info">GPU: %1$s\nGraphics: %2$s</string>
-    <string name="engine_capture_rate">Audio capture: %1$d Hz</string>
+    <string name="engine_graphics_info">Screen: %1$d × %2$d px\nGPU: %3$s\nGraphics: %4$s</string>
+    <string name="engine_capture_format">PCM capture: %1$.1f kbps ◉ %2$d Hz ◉ %3$d bits ◉ %4$d ch</string>
     <string name="engine_capture_inactive">Audio capture: No active capture</string>
     <string name="engine_fps_value">%1$.1f FPS</string>
     <string name="engine_fps_measuring">Measuring FPS…</string>
-    <string name="engine_live_info">%1$s ◉ projectM %2$s with MilkDrop patches</string>
+    <string name="engine_live_info">%1$s ◉ projectM %2$s ◉ projectM-eval %3$s with MilkDrop patches</string>
     <string name="engine_patch_info">MilkDrop runs presets using projectM, with patches to bring their appearance and audio response closer to MilkDrop and BeatDrop. These improve waveforms, beat detection, FFT shader functions, textures, preset variables and pixel alignment. The engine also includes shape drawing optimizations, extended shader functions, date and time variables, and mouse and touch input.</string>
     <string name="engine_upstream_info">Bundled upstream version: %1$s ◉ Commit:\n%2$s</string>
     <string name="engine_snapshot_description">FPS is the measured rendering rate, not the selected frame-rate limit or the playback rate on a casting receiver. The version and commit identify the upstream projectM source bundled with this app; MilkDrop’s patches are applied on top. Engine updates come with app updates.</string>

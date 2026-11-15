@@ -6,6 +6,14 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Add screen resolution, the bundled projectM-eval version, and live PCM capture
+  bitrate, sample rate, bit depth and channel count to Engine information.
+- Widen landscape Settings, reserve space for its header, and apply side insets
+  only where system bars or cutouts overlap the centered sheet.
+
+- Turn off Stereo Internal audio and fall back to mono when screen-capture
+  access ends, keeping the saved setting and switch in sync.
+
 - Restore packed 8-bit legacy decay for flame presets without changing custom
   warp shader inputs or transition blending.
 
