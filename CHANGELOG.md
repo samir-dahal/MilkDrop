@@ -6,6 +6,12 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 
 ### Changed
 
+- Show the media output route and device-reported supported sample rates, PCM bit
+  depths and channel counts below PCM capture, including Bluetooth, USB and wired
+  outputs. Refresh on connection changes while Settings is open; mark active
+  playback format and bitrate unavailable rather than infer them from capture.
+
+
 - Add screen resolution, the bundled projectM-eval version, and live PCM capture
   bitrate, sample rate, bit depth and channel count to Engine information.
 - Widen landscape Settings, reserve space for its header, and apply side insets

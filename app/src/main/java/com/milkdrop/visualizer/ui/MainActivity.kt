@@ -48,6 +48,7 @@ import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.milkdrop.visualizer.R
 import com.milkdrop.visualizer.BuildConfig
+import com.milkdrop.visualizer.audio.AudioDeviceInformation
 import com.milkdrop.visualizer.audio.AudioCaptureManager
 import com.milkdrop.visualizer.audio.AudioInput
 import com.milkdrop.visualizer.audio.PlaybackAudioSession
@@ -84,6 +85,7 @@ class MainActivity : AppCompatActivity() {
     private var castButtonIconResource = 0
     private var tvReceiver: DirectCastReceiver? = null
     private var receivingLive = false
+    private val audioDeviceInformation by lazy { AudioDeviceInformation(this) }
     private var foreground = false
     private val refreshSettingsInfo = object : Runnable {
         override fun run() {
@@ -106,6 +108,7 @@ class MainActivity : AppCompatActivity() {
             binding.engineAudioInfo.text = captureFormat?.let {
                 getString(R.string.engine_capture_format, it.bitrateKbps, it.sampleRateHz, it.bitsPerSample, it.channels)
             } ?: getString(R.string.engine_capture_inactive)
+            binding.engineAudioDeviceInfo.text = audioDeviceInformation.text()
             binding.engineLiveInfo.postDelayed(this, 1_000)
         }
     }
