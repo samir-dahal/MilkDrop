@@ -3,6 +3,7 @@ package com.milkdrop.visualizer.audio
 import android.annotation.SuppressLint
 import android.media.AudioRecord
 import android.os.Process
+import android.os.Build
 import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -42,7 +43,12 @@ internal class PcmCaptureThread(
             try {
                 Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
                 while (running.get()) {
-                    val read = audioRecord.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
+                    val read = if (Build.VERSION.SDK_INT >= 23) {
+                        audioRecord.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
+                    } else {
+                        // The original API is blocking too; retain the same block size and order.
+                        audioRecord.read(buffer, 0, buffer.size)
+                    }
                     if (read < 0) {
                         if (running.get()) Log.w(TAG, "PCM capture failed: $read")
                         break

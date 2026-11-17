@@ -13,7 +13,7 @@ import java.io.Closeable
 /** Reads the existing Wi-Fi Direct group; never scans for, pairs, or connects to devices. */
 internal class ConnectedDisplayPeer(private val context: Context) : Closeable {
     private val manager = if (context.packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI_DIRECT))
-        context.getSystemService(WifiP2pManager::class.java) else null
+        ContextCompat.getSystemService(context, WifiP2pManager::class.java) else null
     private var channel: WifiP2pManager.Channel? = null
     private var generation = 0
     private val main = Handler(Looper.getMainLooper())
@@ -37,7 +37,12 @@ internal class ConnectedDisplayPeer(private val context: Context) : Closeable {
         if (missingPermissions().isNotEmpty()) return onName(null)
         val id = generation
         try {
-            val connection = service.initialize(context, Looper.getMainLooper(), null) ?: return onName(null)
+            // Public Channel.close() starts at API 27. On older Android share one
+            // application-owned channel across queries and Activity recreations.
+            val connection = if (Build.VERSION.SDK_INT >= 27) {
+                service.initialize(context.applicationContext, Looper.getMainLooper(), null)
+            } else LegacyChannel.get(service, context.applicationContext)
+            if (connection == null) return onName(null)
             channel = connection
             timeout = Runnable { if (id == generation) { close(); onName(null) } }
                 .also { main.postDelayed(it, 2_000) }
@@ -62,7 +67,18 @@ internal class ConnectedDisplayPeer(private val context: Context) : Closeable {
         generation++
         timeout?.let(main::removeCallbacks)
         timeout = null
-        runCatching { channel?.close() }
+        if (Build.VERSION.SDK_INT >= 27) {
+            runCatching { channel?.close() }
+        }
         channel = null
+    }
+
+    private object LegacyChannel {
+        private var shared: WifiP2pManager.Channel? = null
+
+        // Queries and disconnect callbacks both run on the main looper. Retain no Activity.
+        fun get(manager: WifiP2pManager, context: Context): WifiP2pManager.Channel? =
+            shared ?: manager.initialize(context, Looper.getMainLooper()) { shared = null }
+                .also { shared = it }
     }
 }

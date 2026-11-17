@@ -24,13 +24,13 @@ Preset `FFTAttack` and `FFTDecay` values are supported, with defaults of 0.5 and
   cannot initialize stereo capture. Multiple physical microphones do not guarantee that
   Android exposes separate left/right channels to the app.
 - **Internal, default:** popup-free mono snapshots from Android's Visualizer API on
-  Android 9+. Left and right waveform functions return the same captured channel.
+  Android 5+. Left and right waveform functions return the same captured channel.
   Waveform detail is limited by the device's capture size. Overlapping snapshots are
   analyzed as complete windows, using the reported sample rate even after route changes.
 - **Stereo Internal audio, optional:** Android 10+ playback PCM capture after system
   consent. Requests stereo before mono, trying 44,100 and 48,000 Hz. Canceling or
   dismissing consent disables the option and falls back to default mono Internal.
-  The switch is disabled on Android 9. Capture policies of the playing app still apply.
+  The switch is disabled on Android 5–9. Capture policies of the playing app still apply.
 
 Stereo PCM remains separate through processing; mono fallback cannot recreate stereo.
 Microphone and playback PCM are delivered continuously in roughly 5 ms blocks on an

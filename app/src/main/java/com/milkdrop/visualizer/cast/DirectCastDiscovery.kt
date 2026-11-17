@@ -1,5 +1,6 @@
 package com.milkdrop.visualizer.cast
 
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -21,7 +22,7 @@ internal fun directCastIdentity(context: Context): String {
 /** Legacy NSD is retained for Android 9. Resolve sequentially: old NSD allows one request. */
 @Suppress("DEPRECATION")
 internal class DirectCastDiscovery(context: Context, private val changed: (List<DirectCastDevice>) -> Unit) {
-    private val nsd = context.applicationContext.getSystemService(NsdManager::class.java)
+    private val nsd = requireNotNull(ContextCompat.getSystemService(context.applicationContext, NsdManager::class.java))
     private val ownId = directCastIdentity(context)
     private val main = Handler(Looper.getMainLooper())
     private val devices = linkedMapOf<String, DirectCastDevice>()

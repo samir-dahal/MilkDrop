@@ -23,7 +23,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
 
-    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+    <uses-feature android:glEsVersion="0x00030000" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -48,6 +48,13 @@
 
         <service android:name=".audio.PlaybackProjectionService"
             android:exported="false" android:foregroundServiceType="mediaProjection" />
+
+        <!-- Video decoding works independently of the projectM OpenGL renderer. -->
+        <activity
+            android:name=".ui.LiveReceiverActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|uiMode"
+            android:theme="@style/Theme.MilkDrop.Fullscreen" />
 
         <activity
             android:name=".ui.MainActivity"

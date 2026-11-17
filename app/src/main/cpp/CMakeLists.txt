@@ -345,6 +345,8 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderStateCompatibility.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/BeatDropWaveforms.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/PredefinedVariables.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/PresetRenderingCompatibility.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/FeedbackResize.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShapeBatching.cmake)
 
 find_library(log-lib log)
 target_link_libraries(projectM PRIVATE ${log-lib})

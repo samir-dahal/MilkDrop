@@ -1,5 +1,6 @@
 package com.milkdrop.visualizer.render
 
+import androidx.core.content.ContextCompat
 import android.app.ActivityManager
 import android.content.Context
 import android.opengl.EGL14
@@ -12,7 +13,7 @@ internal object GraphicsSupport {
     data class Result(val supported: Boolean, val version: String)
 
     fun check(context: Context): Result {
-        val advertised = context.getSystemService(ActivityManager::class.java)?.deviceConfigurationInfo?.reqGlEsVersion ?: 0
+        val advertised = ContextCompat.getSystemService(context, ActivityManager::class.java)?.deviceConfigurationInfo?.reqGlEsVersion ?: 0
         val advertisedVersion = "${advertised ushr 16}.${advertised and 0xffff}"
         if (advertised in 1 until 0x30000) return Result(false, advertisedVersion)
 
@@ -24,7 +25,8 @@ internal object GraphicsSupport {
         var surface = EGL14.EGL_NO_SURFACE
         var initialized = false
         try {
-            if (!EGL14.eglInitialize(display, null, 0, null, 0)) return Result(false, advertisedVersion)
+            // Android 5's EGL bindings reject null output arrays, even though EGL permits them.
+            if (!EGL14.eglInitialize(display, IntArray(1), 0, IntArray(1), 0)) return Result(false, advertisedVersion)
             initialized = true
             val configs = arrayOfNulls<EGLConfig>(1)
             val count = IntArray(1)

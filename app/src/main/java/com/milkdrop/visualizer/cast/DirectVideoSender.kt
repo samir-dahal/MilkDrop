@@ -18,6 +18,8 @@ internal class DirectVideoSender(
     private val socket = Socket()
     private val closed = AtomicBoolean(false)
     private val failed = AtomicBoolean(false)
+    private val congestion = AtomicBoolean(false)
+    fun consumeCongestion(): Boolean = congestion.getAndSet(false)
     private val frames = LiveFrameQueue()
     private val signal = Semaphore(0)
     // Acknowledge decoder input separately from presentation: older codecs may need several
@@ -54,7 +56,10 @@ internal class DirectVideoSender(
 
     fun offer(bytes: ByteArray, timeUs: Long, key: Boolean) {
         if (closed.get()) return
-        if (!frames.offer(LiveFrameQueue.Frame(bytes, timeUs, key))) requestKeyFrame?.invoke()
+        if (!frames.offer(LiveFrameQueue.Frame(bytes, timeUs, key))) {
+            congestion.set(true)
+            requestKeyFrame?.invoke()
+        }
         if (signal.availablePermits() == 0) signal.release()
     }
 

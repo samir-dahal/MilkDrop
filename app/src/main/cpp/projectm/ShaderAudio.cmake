@@ -85,6 +85,26 @@ patch_projectm_source(Audio src/libprojectM/Audio/PCM.cpp
     data.shaderAudio = m_shaderAudioInput.Frame();]=]
 )
 
+# Match BeatDrop's smoothed timer for the six beat variables only. Shader FFT,
+# waveform capture, render pacing and band-to-bin mapping remain independent.
+patch_projectm_copy(Audio src/libprojectM/Audio/PCM.hpp
+    [=[#include "ShaderAudioAnalysis.hpp"]=]
+    [=[#include "ShaderAudioAnalysis.hpp"
+#include "BeatAnalysisTiming.hpp"]=]
+    [=[    MilkdropFFT m_beatFFT{SpectrumSamples * 2, SpectrumSamples, true};]=]
+    [=[    MilkdropFFT m_beatFFT{SpectrumSamples * 2, SpectrumSamples, true};
+    milkdrop::BeatAnalysisTiming m_beatTiming;]=]
+)
+patch_projectm_copy(Audio src/libprojectM/Audio/PCM.cpp
+    [=[    m_bass.Update(monoSpectrum, secondsSinceLastFrame, frame);
+    m_middles.Update(monoSpectrum, secondsSinceLastFrame, frame);
+    m_treble.Update(monoSpectrum, secondsSinceLastFrame, frame);]=]
+    [=[    const double beatElapsed = m_beatTiming.Update(secondsSinceLastFrame);
+    m_bass.Update(monoSpectrum, beatElapsed, frame);
+    m_middles.Update(monoSpectrum, beatElapsed, frame);
+    m_treble.Update(monoSpectrum, beatElapsed, frame);]=]
+)
+
 # All consumers must see the same PCM and FrameAudioData layouts, including
 # ProjectM.hpp, Preset.hpp and user-sprite code. Preserve BeatAnalysis's aliases.
 projectm_patched_path(Audio "${PROJECTM_SOURCE_DIR}/src/libprojectM/Audio/PCM.hpp" MILKDROP_PATCHED_PCM)

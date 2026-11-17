@@ -12,6 +12,10 @@ val projectmVersion = providers.fileContents(projectmSource.file("CMakeLists.txt
     Regex("""project\(\s*libprojectM\b[\s\S]*?\bVERSION\s+(\d+\.\d+\.\d+)""")
         .find(source)?.groupValues?.get(1) ?: "Unknown"
 }.get()
+val projectmEvalVersion = providers.fileContents(projectmSource.file("vendor/projectm-eval/CMakeLists.txt")).asText.map { source ->
+    Regex("""project\(\s*projectm-eval\b[\s\S]*?\bVERSION\s+(\d+\.\d+\.\d+)""")
+        .find(source)?.groupValues?.get(1) ?: "Unknown"
+}.get()
 val projectmCommit = runCatching {
     val revision = providers.exec {
         workingDir(projectmSource.asFile)
@@ -37,11 +41,12 @@ android {
 
     defaultConfig {
         applicationId = "com.milkdrop.visualizer"
-        minSdk = 28
+        minSdk = 21
         targetSdk = 35
-        versionCode = 4
-        versionName = "2.1.0"
+        versionCode = 5
+        versionName = "2.2.0"
         buildConfigField("String", "PROJECTM_VERSION", "\"$projectmVersion\"")
+        buildConfigField("String", "PROJECTM_EVAL_VERSION", "\"$projectmEvalVersion\"")
         buildConfigField("String", "PROJECTM_COMMIT", "\"$projectmCommit\"")
         buildConfigField("String", "CAST_RECEIVER_APP_ID", "\"$castReceiverAppId\"")
 
@@ -63,7 +68,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Personal sideloaded app: sign release with the local debug key so the optimized APK
             // installs directly. Switch to a real keystore before distributing it anywhere.
             signingConfig = signingConfigs.getByName("debug")
