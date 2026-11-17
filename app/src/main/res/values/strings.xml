@@ -8,7 +8,7 @@
     <string name="engine_audio_media_devices">Media output devices:</string>
     <string name="engine_audio_connected_devices">Connected output devices (active media route unconfirmed):</string>
     <string name="engine_audio_devices_legacy">Device format details unavailable on Android 5.</string>
-    <string name="engine_audio_active_unknown">Active output: kbps, Hz, bits and channels unavailable. Android does not expose the current playback format here.</string>
+    <string name="engine_audio_active_unknown">Active playback format: Not exposed to this app. Supported formats above are device capabilities.</string>
     <string name="engine_audio_device_details">%1$s (%2$s)\nSupported: %3$s Hz ◉ %4$s bits ◉ %5$s ch</string>
     <string name="audio_device_speaker">Built-in speaker</string>
     <string name="audio_device_earpiece">Earpiece</string>
@@ -101,7 +101,7 @@
     <string name="fps_30">30</string>
     <string name="fps_45">45</string>
     <string name="fps_60">60</string>
-    <string name="fps_max">Max</string>
+    <string name="fps_max">Max (Unlimited)</string>
     <string name="setting_quality">Quality</string>
     <string name="setting_mesh_size">Per-point mesh size X/Y</string>
     <string name="mesh_size_x">X</string>

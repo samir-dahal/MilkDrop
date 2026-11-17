@@ -67,6 +67,7 @@ import com.milkdrop.visualizer.render.GraphicsSupport
 import com.milkdrop.visualizer.settings.AppSettings
 import com.milkdrop.visualizer.settings.AudioTuning
 import com.milkdrop.visualizer.settings.PresetTiming
+import com.milkdrop.visualizer.settings.ProcessorNames
 import com.milkdrop.visualizer.settings.FrameRates
 import java.io.File
 import java.io.IOException
@@ -1207,11 +1208,12 @@ class MainActivity : AppCompatActivity() {
         spinner.setSelection(index)
     }
 
-    private fun processorInfo(): String {
-        val soc = if (Build.VERSION.SDK_INT >= 31) listOf(Build.SOC_MANUFACTURER, Build.SOC_MODEL)
-            .filter { it.isNotBlank() && !it.equals("unknown", true) }.joinToString(" ") else ""
-        return soc.ifBlank { Build.HARDWARE.ifBlank { getString(R.string.engine_info_unavailable) } }
-    }
+    private fun processorInfo(): String = ProcessorNames.displayName(
+        manufacturer = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MANUFACTURER else "",
+        model = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else "",
+        hardware = Build.HARDWARE,
+        unavailable = getString(R.string.engine_info_unavailable),
+    )
 
     private fun castingFrameRateLimited() = castState.casting || castState.connecting || castState.disconnecting
 
