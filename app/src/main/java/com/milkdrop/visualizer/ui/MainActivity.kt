@@ -102,6 +102,8 @@ class MainActivity : AppCompatActivity() {
             windowManager.defaultDisplay.getRealMetrics(displaySize)
             binding.engineGraphicsInfo.text = getString(R.string.engine_graphics_info,
                 displaySize.widthPixels, displaySize.heightPixels,
+                surfaceView.display?.refreshRate ?: windowManager.defaultDisplay.refreshRate,
+                processorInfo(),
                 graphics?.gpu?.takeIf { it.isNotBlank() } ?: unavailable,
                 graphics?.version?.takeIf { it.isNotBlank() } ?: unavailable)
             val captureFormat = surfaceView.milkDropRenderer.currentCaptureFormat()
@@ -254,6 +256,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         settings = AppSettings(this)
+        // Recover the older fallback state: stereo requested, but Mic persisted instead.
+        if (Build.VERSION.SDK_INT >= 29 && settings.stereoInternalAudio && settings.audioInput == AudioInput.MIC) {
+            settings.audioInput = AudioInput.INTERNAL
+        }
         if (!isTelevision()) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         // Two small files, read once here; writes go to the background executor.
         hadStorageAccess = hasAllFilesAccess()
@@ -305,7 +311,12 @@ class MainActivity : AppCompatActivity() {
 
         setupGestures()
         castingController = CastingController(this, surfaceView, onState = { state ->
+            val wasCasting = castingFrameRateLimited()
             castState = state
+            if (wasCasting != castingFrameRateLimited()) {
+                updateFrameRateOptions()
+                applyFrameRate()
+            }
             updateCastButton()
             binding.castStatus.isVisible = state.casting && !receivingLive
             binding.castDeviceName.text = state.device
@@ -349,7 +360,7 @@ class MainActivity : AppCompatActivity() {
         configureTimingSpinner(binding.spinnerPresetDuration, R.array.preset_duration_options, presetDurationIndex)
         configureTimingSpinner(binding.spinnerAdditionalRandom, R.array.additional_random_options, additionalRandomIndex)
         configureTimingSpinner(binding.spinnerTransitionTime, R.array.transition_time_options, transitionTimeIndex)
-        configureTimingSpinner(binding.spinnerFrameRate, R.array.frame_rate_options, fpsIndex)
+        updateFrameRateOptions()
         configureTimingSpinner(binding.spinnerQuality, R.array.quality_options, qualityIndex)
         binding.sliderMeshSizeX.progress = settings.meshColumns - MESH_SIZE_MIN
         binding.sliderMeshSizeY.progress = settings.meshRows - MESH_SIZE_MIN
@@ -451,7 +462,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun expectedRenderFps(): Int {
         val displayRate = (surfaceView.display?.refreshRate ?: 60f).roundToInt().coerceAtLeast(24)
-        val selectedFps = FrameRates.options[fpsIndex]
+        val selectedFps = FrameRates.effective(FrameRates.options[fpsIndex], castingFrameRateLimited())
         return minOf(60, displayRate, if (selectedFps == 0) Int.MAX_VALUE else selectedFps)
     }
 
@@ -1057,11 +1068,7 @@ class MainActivity : AppCompatActivity() {
                 surfaceView.milkDropRenderer.transitionSeconds = settings.transitionSeconds.toDouble()
             }
         }
-        binding.spinnerFrameRate.onUserSelection { index ->
-            fpsIndex = index
-            settings.fpsIndex = fpsIndex
-            applyFrameRate()
-        }
+        updateFrameRateOptions()
         binding.spinnerQuality.onUserSelection { index ->
             if (index == qualityIndex) return@onUserSelection
             qualityIndex = index
@@ -1080,7 +1087,8 @@ class MainActivity : AppCompatActivity() {
             if (updatingControls) return@setOnCheckedChangeListener
             settings.stereoInternalAudio = checked
             releasePlaybackAudioSession()
-            startPersistedAudioSource()
+            if (checked && settings.audioInput == AudioInput.MIC) startAudioInput(AudioInput.INTERNAL)
+            else startPersistedAudioSource()
         }
         binding.groupAudioSource.onUserSelection { id ->
             audioCaptureManager.stopAll()
@@ -1199,9 +1207,37 @@ class MainActivity : AppCompatActivity() {
         spinner.setSelection(index)
     }
 
+    private fun processorInfo(): String {
+        val soc = if (Build.VERSION.SDK_INT >= 31) listOf(Build.SOC_MANUFACTURER, Build.SOC_MODEL)
+            .filter { it.isNotBlank() && !it.equals("unknown", true) }.joinToString(" ") else ""
+        return soc.ifBlank { Build.HARDWARE.ifBlank { getString(R.string.engine_info_unavailable) } }
+    }
+
+    private fun castingFrameRateLimited() = castState.casting || castState.connecting || castState.disconnecting
+
+    private fun updateFrameRateOptions() {
+        val values = FrameRates.available(castingFrameRateLimited())
+        val selected = FrameRates.effective(FrameRates.options[fpsIndex], castingFrameRateLimited())
+        binding.spinnerFrameRate.onItemSelectedListener = null
+        binding.spinnerFrameRate.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item,
+            values.map { if (it == 0) getString(R.string.fps_max) else "$it FPS" }).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        binding.spinnerFrameRate.setSelection(values.indexOf(selected).coerceAtLeast(0))
+        // Adapter changes can deliver a delayed selection event; ignore unchanged selections.
+        binding.spinnerFrameRate.onUserSelection { index ->
+            val value = values.getOrNull(index) ?: return@onUserSelection
+            if (value != FrameRates.effective(FrameRates.options[fpsIndex], castingFrameRateLimited())) {
+                fpsIndex = FrameRates.indexFor(value)
+                settings.fpsIndex = fpsIndex
+                applyFrameRate()
+            }
+        }
+    }
+
     @Suppress("DEPRECATION") // The window display API is needed on Android 9.
     private fun applyFrameRate() {
-        val fps = FrameRates.options[fpsIndex]
+        val fps = FrameRates.effective(FrameRates.options[fpsIndex], castingFrameRateLimited())
         surfaceView.targetFps = fps
         val display = surfaceView.display ?: windowManager.defaultDisplay
         val highest = if (Build.VERSION.SDK_INT >= 23) {
@@ -1578,7 +1614,8 @@ class MainActivity : AppCompatActivity() {
             playbackAudioSession = null
             // Selecting Internal/Auto again starts a new consent session.
             if (!playbackConsentPending) playbackConsentRequested = false
-        } else if (settings.stereoInternalAudio && Build.VERSION.SDK_INT >= 29 && !playbackConsentRequested) {
+        } else if (settings.stereoInternalAudio && Build.VERSION.SDK_INT >= 29 &&
+            playbackAudioSession == null && !playbackConsentRequested) {
             playbackConsentRequested = true
             playbackConsentPending = true
             audioCaptureManager.stopAll()
@@ -1588,6 +1625,7 @@ class MainActivity : AppCompatActivity() {
                 return
             } catch (e: RuntimeException) {
                 playbackConsentPending = false
+                playbackConsentRequested = false
                 Log.w(TAG, "Playback consent unavailable; using mono capture", e)
             }
         }
@@ -1612,7 +1650,10 @@ class MainActivity : AppCompatActivity() {
     private fun switchToMic(): Boolean {
         releasePlaybackAudioSession()
         val started = audioCaptureManager.startMic()
+        // A temporary capture fallback must not replace the saved Internal/Auto choice.
+        val intendedInput = settings.audioInput
         showAudioInput(AudioInput.MIC)
+        if (settings.stereoInternalAudio) settings.audioInput = intendedInput
         if (!started) binding.audioSourceDescription.setText(R.string.audio_source_mic_unavailable)
         return started
     }

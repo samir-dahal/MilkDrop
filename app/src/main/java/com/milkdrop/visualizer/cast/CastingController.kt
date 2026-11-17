@@ -597,11 +597,8 @@ class CastingController(
     }
 
     private fun encodingFrameRate(): Int {
-        val display = renderer.display
-        val refresh = if (Build.VERSION.SDK_INT >= 23) {
-            display?.supportedModes?.maxOfOrNull { it.refreshRate }
-        } else display?.refreshRate
-        return maxOf(renderer.targetFps, refresh?.let { kotlin.math.ceil(it.toDouble()).toInt() } ?: 60)
+        // Use the cast render cap for every transport, including direct live receivers.
+        return renderer.targetFps.takeIf { it > 0 }?.coerceIn(1, 60) ?: 60
     }
 
     fun stop(selectLocal: Boolean = true, suppressDisplay: Boolean = true) {

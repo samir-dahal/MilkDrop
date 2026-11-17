@@ -2,7 +2,7 @@
     <string name="engine_info_title">Engine information</string>
     <string name="engine_app_version">MilkDrop %1$s</string>
     <string name="engine_info_unavailable">Unavailable</string>
-    <string name="engine_graphics_info">Screen: %1$d × %2$d px\nGPU: %3$s\nGraphics: %4$s</string>
+    <string name="engine_graphics_info">Screen: %1$d × %2$d px ◉ %3$.1f Hz\nProcessor: %4$s\nGPU: %5$s\nGraphics: %6$s</string>
     <string name="engine_capture_format">PCM capture: %1$.1f kbps ◉ %2$d Hz ◉ %3$d bits ◉ %4$d ch</string>
     <string name="engine_audio_route">Audio output route: %1$s</string>
     <string name="engine_audio_media_devices">Media output devices:</string>
@@ -94,7 +94,7 @@
     <string name="duration_60">60 s</string>
     <string name="setting_frame_rate">Frame rate</string>
     <string-array name="frame_rate_options">
-        <item>24 FPS</item><item>30 FPS</item><item>45 FPS</item><item>50 FPS</item>
+        <item>15 FPS</item><item>24 FPS</item><item>30 FPS</item><item>45 FPS</item><item>50 FPS</item>
         <item>60 FPS</item><item>120 FPS</item><item>Max (Unlimited)</item>
     </string-array>
     <string name="frame_rate_description">Max removes the app’s FPS limit. Actual speed depends on your display and device. Google Cast targets up to 60 FPS, depending on encoder and receiver support.</string>
