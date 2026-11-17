@@ -79,3 +79,62 @@ patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
     [=[            while(m_tokenizer.GetToken() != HLSLToken_EndOfLine &&
                   m_tokenizer.GetToken() != HLSLToken_EndOfStream)]=]
 )
+
+# Macro collection must use the same branch selection as source expansion.
+# Otherwise an inactive #else definition can override an active function macro.
+patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
+    [=[    // Fisrt pass, grab #define
+    while (m_tokenizer.GetToken() != HLSLToken_EndOfStream)
+    {
+        if (m_tokenizer.GetToken() == HLSLToken_PreprocessorDefine)
+        {
+            ParsePreprocessorDefine();
+        }
+
+        m_tokenizer.Next();
+    }]=]
+    [=[    // First pass: collect definitions only from active conditional branches.
+    std::stack<bool> collecting;
+    collecting.push(true);
+    while (m_tokenizer.GetToken() != HLSLToken_EndOfStream)
+    {
+        const int directive = m_tokenizer.GetToken();
+        if (directive == HLSLToken_PreprocessorIf || directive == HLSLToken_PreprocessorIfdef ||
+            directive == HLSLToken_PreprocessorIfndef)
+        {
+            const char* start = m_tokenizer.getCurrentPos();
+            while (m_tokenizer.GetToken() != HLSLToken_EndOfLine &&
+                   m_tokenizer.GetToken() != HLSLToken_EndOfStream) m_tokenizer.Next(false);
+            std::string condition(start, m_tokenizer.getCurrentPos());
+            if (directive == HLSLToken_PreprocessorIfdef) condition = "defined " + condition;
+            else if (directive == HLSLToken_PreprocessorIfndef) condition = "!defined " + condition;
+            bool enabled = false;
+            if (collecting.top() && !milkdrop::ShaderConditional::Evaluate(condition,
+                [this](const std::string& name) -> const char* {
+                    for (int i = m_macros.GetSize() - 1; i >= 0; --i)
+                        if (String_Equal(m_macros[i]->name, name.c_str())) return m_macros[i]->value;
+                    return nullptr;
+                }, enabled)) return false;
+            collecting.push(collecting.top() && enabled);
+        }
+        else if (directive == HLSLToken_PreprocessorElse)
+        {
+            if (collecting.size() <= 1) return false;
+            const bool state = collecting.top(); collecting.pop();
+            collecting.push(collecting.top() && !state);
+        }
+        else if (directive == HLSLToken_PreprocessorEndif)
+        {
+            if (collecting.size() <= 1) return false;
+            collecting.pop();
+        }
+        else if (directive == HLSLToken_PreprocessorDefine)
+        {
+            if (collecting.top()) ParsePreprocessorDefine();
+            else while (m_tokenizer.GetToken() != HLSLToken_EndOfLine &&
+                        m_tokenizer.GetToken() != HLSLToken_EndOfStream) m_tokenizer.Next(false);
+        }
+        m_tokenizer.Next();
+    }
+    if (collecting.size() != 1) return false;]=]
+)
