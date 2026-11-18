@@ -51,6 +51,44 @@ float _milkdrop_normalize(float x) { return x == 0 ? 0 : sign(x); }
             }
         }
     }
+    // Keep invalid angles from propagating into an otherwise valid pixel.
+    // Apply the fallback per component so valid lanes keep their original values.
+    static const std::regex sincosCall(R"(\bsincos\s*\()");
+    const bool usesSincos = std::regex_search(source, sincosCall);
+    for (const std::string name : {"sin", "cos", "tan", "asin", "acos", "atan", "atan2"}) {
+        const std::regex call("\\b" + name + R"(\s*\()");
+        const bool called = std::regex_search(source, call);
+        if (!called && !(usesSincos && (name == "sin" || name == "cos"))) continue;
+
+        const std::string helper = "_milkdrop_" + name;
+        const bool binary = name == "atan2";
+        if (called) source = std::regex_replace(source, call, helper + "(");
+        helpers += "float " + helper + "(float x" + (binary ? ", float y" : "") + ") {\n";
+        std::string invalid = "isnan(x) || isinf(x)";
+        if (name == "asin" || name == "acos") invalid += " || abs(x) > 1.0";
+        if (binary) invalid += " || isnan(y) || isinf(y) || (x == 0.0 && y == 0.0)";
+        helpers += "    if (" + invalid + ") return 0.0;\n";
+        helpers += "    return " + name + (binary ? "(x,y);\n}\n" : "(x);\n}\n");
+
+        for (int size = 2; size <= 4; ++size) {
+            const auto type = "float" + std::to_string(size);
+            helpers += type + " " + helper + "(" + type + " x" + (binary ? ", " + type + " y" : "") +
+                       ") { return " + type + "(";
+            for (int i = 0; i < size; ++i) {
+                const std::string channel(1, "xyzw"[i]);
+                if (i > 0) helpers += ", ";
+                helpers += helper + "(x." + channel + (binary ? ", y." + channel : "") + ")";
+            }
+            helpers += "); }\n";
+        }
+    }
+    if (usesSincos) {
+        source = std::regex_replace(source, sincosCall, "_milkdrop_sincos(");
+        for (const std::string type : {"float", "float2", "float3", "float4"}) {
+            helpers += "void _milkdrop_sincos(" + type + " x, out " + type + " s, out " + type +
+                       " c) { s = _milkdrop_sin(x); c = _milkdrop_cos(x); }\n";
+        }
+    }
     return helpers + source;
 }
 } // namespace milkdrop
