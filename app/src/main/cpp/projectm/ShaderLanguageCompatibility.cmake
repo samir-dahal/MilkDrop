@@ -222,3 +222,41 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader
     [=[            if (sampler != "state")]=]
     [=[            const size_t next = stripped.find_first_not_of(" \t\r\n", end);
             if (sampler != "state" && (next == std::string::npos || stripped[next] != '('))]=])
+
+# Remove legacy sampler state assignments without shifting shader source offsets.
+patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader.cpp
+    [=[    found = stripped.find("sampler_state");
+    while (found != std::string::npos)
+    {
+        // Now go backwards and find the assignment
+        found = stripped.rfind('=', found);
+        auto startPos = found;
+
+        // Find closing brace and semicolon
+        found = stripped.find('}', found);
+        found = stripped.find(';', found);
+
+        if (found != std::string::npos)
+        {
+            stripped.replace(startPos, found - startPos, "");
+        }
+        else
+        {
+            // No closing brace and semicolon.
+            break;
+        }
+
+        found = stripped.find("sampler_state");
+    }]=]
+    [=[    static const std::regex samplerStateInitializer(R"(=\s*sampler_state\s*\{[^}]*\}(?=\s*;))");
+    for (std::sregex_iterator match(stripped.begin(), stripped.end(), samplerStateInitializer), end;
+         match != end; ++match)
+    {
+        const auto start = static_cast<std::size_t>(match->position());
+        const auto finish = start + static_cast<std::size_t>(match->length());
+        for (auto pos = start; pos < finish; ++pos)
+        {
+            if (program[pos] != '\r' && program[pos] != '\n') program[pos] = ' ';
+        }
+    }]=]
+)

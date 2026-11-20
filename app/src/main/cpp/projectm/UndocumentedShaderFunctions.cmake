@@ -53,7 +53,7 @@ file(READ ${MILKDROPSHADER_SOURCE} MILKDROPSHADER_CONTENT)
 if(MILKDROPSHADER_CONTENT MATCHES "samplerDeclaration\\(\"sampler")
     patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader.cpp
         [=[samplerDeclaration("sampler(2D|3D|)(\\s+|\\().*")]=]
-        [=[samplerDeclaration(R"(\bsampler(?:2D|3D|CUBE|1D)?[ \t]+[A-Za-z_]\w*(?:[ \t]*,[ \t]*[A-Za-z_]\w*)*[ \t]*;)")]=]
+        [=[samplerDeclaration(R"(\bsampler(?:2D|3D|CUBE|1D)?[ \t]+[A-Za-z_]\w*(?:[ \t]*,[ \t]*[A-Za-z_]\w*)*\s*;)")]=]
         [=[Utils::EraseRegexMatches(sourcePreprocessed, "sampler", samplerDeclaration);]=]
         [=[sourcePreprocessed = std::regex_replace(sourcePreprocessed, samplerDeclaration, "");]=]
     )
@@ -63,7 +63,7 @@ else()
         [=[samplerDeclaration]=]
         [=[    std::smatch matches;]=]
         [=[    std::smatch matches;
-    static const std::regex samplerDeclaration(R"(\bsampler(?:1D|2D|3D|CUBE)?[ \t]+[A-Za-z_]\w*(?:[ \t]*,[ \t]*[A-Za-z_]\w*)*[ \t]*;)");]=]
+    static const std::regex samplerDeclaration(R"(\bsampler(?:1D|2D|3D|CUBE)?[ \t]+[A-Za-z_]\w*(?:[ \t]*,[ \t]*[A-Za-z_]\w*)*\s*;)");]=]
     )
 endif()
 

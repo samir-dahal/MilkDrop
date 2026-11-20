@@ -21,6 +21,25 @@ patch_projectm_source(hlslparser vendor/hlslparser/src/HLSLTree.cpp
                 initialValue->global = true;
                 initialValue->expressionType = uniformDeclaration->type;
                 declaration->assignment = initialValue;]=]
+    [=[if (NeedsFlattening(node->initialization->assignment, 1))]=]
+    [=[if (node->initialization && NeedsFlattening(node->initialization->assignment, 1))]=]
+)
+
+# Retain upstream's increment-list traversal when it is already present.
+file(READ "${PROJECTM_SOURCE_DIR}/vendor/hlslparser/src/HLSLTree.cpp" HLSL_TREE_SOURCE)
+string(FIND "${HLSL_TREE_SOURCE}" "HLSLExpression * increment = node->increment;" HLSL_INCREMENT_LIST)
+if(NOT HLSL_INCREMENT_LIST EQUAL -1)
+    patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLTree.cpp
+        [=[        increment = increment->nextExpression;
+    }
+    VisitStatements(node->statement);]=]
+        [=[        increment = increment->nextExpression;
+    }
+    if (node->initializationWithoutType) VisitExpression(node->initializationWithoutType);
+    VisitStatements(node->statement);]=]
+    )
+else()
+    patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLTree.cpp
     [=[    if (node->increment) {
         VisitExpression(node->increment);
     }]=]
@@ -28,9 +47,8 @@ patch_projectm_source(hlslparser vendor/hlslparser/src/HLSLTree.cpp
         VisitExpression(increment);
     }
     if (node->initializationWithoutType) VisitExpression(node->initializationWithoutType);]=]
-    [=[if (NeedsFlattening(node->initialization->assignment, 1))]=]
-    [=[if (node->initialization && NeedsFlattening(node->initialization->assignment, 1))]=]
-)
+    )
+endif()
 
 # Raymarching presets use for(; condition; step1, step2). The upstream parser
 # required an initializer and accepted only one increment expression.
@@ -39,11 +57,49 @@ patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
     [=[if (m_tokenizer.GetToken() != ';' && !ParseDeclaration(forStatement->initialization) && !ParseExpression(forStatement->initializationWithoutType))]=]
     [=[        ParseExpression(forStatement->condition);]=]
     [=[        if (m_tokenizer.GetToken() != ';' && !ParseExpression(forStatement->condition)) return false;]=]
+)
+
+# Route both upstream loop parsers through MilkDropâ€™s expression-list handling.
+file(READ "${PROJECTM_SOURCE_DIR}/vendor/hlslparser/src/HLSLParser.cpp" HLSL_PARSER_SOURCE)
+string(FIND "${HLSL_PARSER_SOURCE}" "if (ParseExpression(forStatement->increment))" HLSL_LIST_PARSE)
+if(NOT HLSL_LIST_PARSE EQUAL -1)
+    patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
+        [=[        if (ParseExpression(forStatement->increment))
+        {
+            // The increment may be a comma-separated list of expressions,
+            // e.g. "i++, j++". Chain them like an expression list.
+            HLSLExpression* lastExpression = forStatement->increment;
+            while (Accept(','))
+            {
+                HLSLExpression* expression = NULL;
+                if (!ParseExpression(expression))
+                {
+                    return false;
+                }
+                lastExpression->nextExpression = expression;
+                lastExpression = expression;
+            }
+        }
+        if (!Expect(')'))]=]
+        [=[        int incrementCount = 0;
+        if (!ParseExpressionList(')', false, forStatement->increment, incrementCount))]=]
+    )
+else()
+    patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
     [=[        ParseExpression(forStatement->increment);
         if (!Expect(')'))]=]
     [=[        int incrementCount = 0;
         if (!ParseExpressionList(')', false, forStatement->increment, incrementCount))]=]
-)
+    )
+endif()
+file(READ "${PROJECTM_SOURCE_DIR}/vendor/hlslparser/src/GLSLGenerator.cpp" HLSL_GENERATOR_SOURCE)
+string(FIND "${HLSL_GENERATOR_SOURCE}" "OutputExpressionList(forStatement->increment);" HLSL_LIST_OUTPUT)
+if(HLSL_LIST_OUTPUT EQUAL -1)
+    patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
+        [=[OutputExpression(forStatement->increment);]=]
+        [=[OutputExpressionList(forStatement->increment);]=]
+    )
+endif()
 
 # Legacy D3D presets frequently use uninitialized numeric accumulators as zero.
 include(${CMAKE_CURRENT_LIST_DIR}/ShaderLanguageCompatibility.cmake)
@@ -54,8 +110,6 @@ patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
     [=[void GLSLGenerator::OutputExpression(HLSLExpression* expression, const HLSLType* dstType)
 {
     if (!expression) return; // Empty for-loop clauses have no expression.]=]
-    [=[OutputExpression(forStatement->increment);]=]
-    [=[OutputExpressionList(forStatement->increment);]=]
     [=[		lastDecl = declaration;
 		declaration = declaration->nextDeclaration;]=]
     [=[        if (!declaration->assignment && !skipAssignment && !declaration->type.array &&
