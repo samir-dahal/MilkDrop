@@ -206,11 +206,6 @@ patch_projectm_source(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
     [=[const char* GLSLGenerator::s_reservedWord[] =]=]
     [=[static const int kFirstBuiltinFunctionWord = 9;
 const char* GLSLGenerator::s_reservedWord[] =]=]
-    [=[m_writer.WriteLine(0, "float %s(int i_x, int i_y) { float x=float(i_x); float y=float(i_y); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }", m_altMultFunction);]=]
-    [=[m_writer.WriteLine(0, "int %s(int x, int y) { return x * y; }", m_altMultFunction);
-        m_writer.WriteLine(0, "ivec2 %s(ivec2 x, ivec2 y) { return x * y; }", m_altMultFunction);
-        m_writer.WriteLine(0, "ivec3 %s(ivec3 x, ivec3 y) { return x * y; }", m_altMultFunction);
-        m_writer.WriteLine(0, "ivec4 %s(ivec4 x, ivec4 y) { return x * y; }", m_altMultFunction);]=]
     [=[OutputIdentifier(functionName);]=]
     [=[bool isBuiltinFunctionCall = false;
             for (int i = kFirstBuiltinFunctionWord; i < s_numReservedWords; ++i)
@@ -332,6 +327,20 @@ static void PrefixPlainSamplerNames(std::string& program)
 )
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ScreenDependentRendering.cmake)
+# projectM master now ships the same integer multiplication overloads.
+# Backport them only when the old floating-point overload is present.
+file(READ "${PROJECTM_SOURCE_DIR}/vendor/hlslparser/src/GLSLGenerator.cpp" HLSL_GLSL_SOURCE)
+set(OLD_INTEGER_MULTIPLY [=[m_writer.WriteLine(0, "float %s(int i_x, int i_y) { float x=float(i_x); float y=float(i_y); if (x == 0.0 || y == 0.0) { return 0.0; } else { return (x * y); } }", m_altMultFunction);]=])
+string(FIND "${HLSL_GLSL_SOURCE}" "${OLD_INTEGER_MULTIPLY}" OLD_INTEGER_MULTIPLY_POSITION)
+if(NOT OLD_INTEGER_MULTIPLY_POSITION EQUAL -1)
+    patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
+        "${OLD_INTEGER_MULTIPLY}"
+        [=[m_writer.WriteLine(0, "int %s(int x, int y) { return x * y; }", m_altMultFunction);
+        m_writer.WriteLine(0, "ivec2 %s(ivec2 x, ivec2 y) { return x * y; }", m_altMultFunction);
+        m_writer.WriteLine(0, "ivec3 %s(ivec3 x, ivec3 y) { return x * y; }", m_altMultFunction);
+        m_writer.WriteLine(0, "ivec4 %s(ivec4 x, ivec4 y) { return x * y; }", m_altMultFunction);]=]
+    )
+endif()
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderConditionals.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderAudio.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShaderCompatibility.cmake)
