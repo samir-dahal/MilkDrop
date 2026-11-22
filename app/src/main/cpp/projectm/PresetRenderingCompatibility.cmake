@@ -11,12 +11,29 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader
 # D3D9 places pixel centers at integer coordinates; GLES uses half integers.
 # Translate custom waves by half a framebuffer pixel so a wave at x=0 lands
 # on the first column rather than outside its line rasterization coverage.
-# Keep points on the last scanline inside the viewport too. Legacy feedback
-# presets sample the clamped edge and rely on a wave drawn exactly at y=1.
+# Keep points on the last scanline inside the viewport too. In the legacy
+# clamped warp, flat lines placed at or within 0.1% of an edge seed the outer
+# feedback row. Align those lines with that row at every render resolution.
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomWaveform.cpp
+    [=[    std::vector<Renderer::Color> colors(sampleCount);]=]
+    [=[    std::vector<Renderer::Color> colors(sampleCount);
+    const double halfPixelY = 1.0 / m_presetState.renderContext.viewportSizeY;
+    bool alignEdgeLine = !m_useDots && m_presetState.warpShader.empty() && *presetPerFrameContext.wrap <= 0.0001;
+    double firstY = 0.0;]=]
     [=[        points[sample] = Renderer::Point(]=]
     [=[        const double y = (1.0 - 2.0 * *m_perPointContext.y) * m_presetState.renderContext.invAspectY;
-        const double halfPixelY = 1.0 / m_presetState.renderContext.viewportSizeY;
+        if (alignEdgeLine)
+        {
+            if (sample == 0)
+            {
+                firstY = y;
+                alignEdgeLine = std::abs(y) >= 0.998 && std::abs(y) <= 1.0;
+            }
+            else
+            {
+                alignEdgeLine = y == firstY;
+            }
+        }
         const double shiftedY = y - halfPixelY;
         const double rasterY = y >= -1.0 && y <= 1.0 ? std::max(shiftedY, -1.0 + halfPixelY) : shiftedY;
         points[sample] = Renderer::Point(]=]
@@ -24,6 +41,21 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomWaveform
     [=[* m_presetState.renderContext.invAspectX + 1.0 / m_presetState.renderContext.viewportSizeX),]=]
     [=[static_cast<float>((*m_perPointContext.y * -2.0 + 1.0) * m_presetState.renderContext.invAspectY));]=]
     [=[static_cast<float>(rasterY));]=]
+    [=[    if (m_useDots)
+    {
+        for (int sample = 0; sample < sampleCount; ++sample)]=]
+    [=[    if (alignEdgeLine)
+    {
+        const auto edgeRow = static_cast<float>(std::copysign(1.0 - halfPixelY, firstY));
+        for (auto& point : points)
+        {
+            point.SetY(edgeRow);
+        }
+    }
+
+    if (m_useDots)
+    {
+        for (int sample = 0; sample < sampleCount; ++sample)]=]
 )
 
 # HLSL promotes the two branches of a conditional before assigning its result.
