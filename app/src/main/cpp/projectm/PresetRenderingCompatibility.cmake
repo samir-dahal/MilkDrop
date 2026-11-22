@@ -11,11 +11,19 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropShader
 # D3D9 places pixel centers at integer coordinates; GLES uses half integers.
 # Translate custom waves by half a framebuffer pixel so a wave at x=0 lands
 # on the first column rather than outside its line rasterization coverage.
+# Keep points on the last scanline inside the viewport too. Legacy feedback
+# presets sample the clamped edge and rely on a wave drawn exactly at y=1.
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomWaveform.cpp
+    [=[        points[sample] = Renderer::Point(]=]
+    [=[        const double y = (1.0 - 2.0 * *m_perPointContext.y) * m_presetState.renderContext.invAspectY;
+        const double halfPixelY = 1.0 / m_presetState.renderContext.viewportSizeY;
+        const double shiftedY = y - halfPixelY;
+        const double rasterY = y >= -1.0 && y <= 1.0 ? std::max(shiftedY, -1.0 + halfPixelY) : shiftedY;
+        points[sample] = Renderer::Point(]=]
     [=[* m_presetState.renderContext.invAspectX),]=]
     [=[* m_presetState.renderContext.invAspectX + 1.0 / m_presetState.renderContext.viewportSizeX),]=]
-    [=[* m_presetState.renderContext.invAspectY));]=]
-    [=[* m_presetState.renderContext.invAspectY - 1.0 / m_presetState.renderContext.viewportSizeY));]=]
+    [=[static_cast<float>((*m_perPointContext.y * -2.0 + 1.0) * m_presetState.renderContext.invAspectY));]=]
+    [=[static_cast<float>(rasterY));]=]
 )
 
 # HLSL promotes the two branches of a conditional before assigning its result.

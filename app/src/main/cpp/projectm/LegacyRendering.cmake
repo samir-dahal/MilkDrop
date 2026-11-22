@@ -14,6 +14,8 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PresetFilePars
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PresetFileParser.cpp
     [=[    for (int index{1}; index <= 99999; ++index)]=]
     [=[    size_t nextLine = m_orderedPresetValues.size();
+    const bool shaderCode = lowerKey == "warp_" || lowerKey == "comp_";
+    bool blockComment = false;
     for (int index{1}; index <= 99999; ++index)]=]
     [=[        if (m_presetValues.find(key) == m_presetValues.end())
         {
@@ -30,6 +32,40 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PresetFilePars
         }
         if (nextLine == m_orderedPresetValues.size()) break;
         auto line = m_orderedPresetValues[nextLine++].second;]=]
+    [=[        code << line << std::endl;]=]
+    [=[        if (shaderCode)
+        {
+            code << line << '\n';
+            continue;
+        }
+
+        // The numbered rows are storage boundaries, including within an EEL
+        // identifier. Remove line comments before concatenating the rows.
+        for (size_t offset = 0; offset < line.size(); ++offset)
+        {
+            const auto pair = std::string_view(line).substr(offset, 2);
+            if (blockComment)
+            {
+                if (pair == "*/")
+                {
+                    blockComment = false;
+                    ++offset;
+                }
+                continue;
+            }
+            if (pair == "//" || pair == "\\\\") break;
+            if (pair == "/*")
+            {
+                blockComment = true;
+                code << ' ';
+                ++offset;
+                continue;
+            }
+            code << line[offset];
+        }]=]
+    [=[#include <sstream>]=]
+    [=[#include <sstream>
+#include <string_view>]=]
     [=[    // Only add first occurrence to mimic Milkdrop behaviour]=]
     [=[    // Preserve physical key order for sequential numbered code lookup.
     if (!varName.empty()) m_orderedPresetValues.emplace_back(varName, value);
