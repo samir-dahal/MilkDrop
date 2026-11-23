@@ -296,6 +296,24 @@ endforeach()
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.cpp
     [=[staticShaders->GetPresetWarpVertexShader(),]=]
     [=[milkdrop::CompatibleWarpVertexShader(staticShaders->GetPresetWarpVertexShader()),]=]
+    [=[    m_warpMesh.Draw();]=]
+    [=[    if (m_warpShader)
+    {
+        // The quadrant indices store the two screen halves consecutively.
+        constexpr float pi = 3.14159265358979323846f;
+        const auto halfIndexCount = m_warpMesh.Indices().Size() / 2;
+        auto& shader = m_warpShader->Shader();
+        m_warpMesh.Bind();
+        shader.SetUniformFloat("milkdropWarpSeamAngle", pi);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(halfIndexCount), GL_UNSIGNED_INT, nullptr);
+        shader.SetUniformFloat("milkdropWarpSeamAngle", -pi);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(halfIndexCount), GL_UNSIGNED_INT,
+                       reinterpret_cast<const void*>(halfIndexCount * sizeof(GLuint)));
+    }
+    else
+    {
+        m_warpMesh.Draw();
+    }]=]
 )
 
 # MilkDrop's shader layer always binds sampler_main as wrap and sampler_fc_main as

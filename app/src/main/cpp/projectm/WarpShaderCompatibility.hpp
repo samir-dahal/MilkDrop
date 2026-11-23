@@ -25,6 +25,22 @@ inline std::string CompatibleWarpVertexShader(std::string source)
     }
 )");
     }
+
+    const std::string polarOutput = "frag_TEXCOORD1 = rad_ang;";
+    const auto polarAt = source.find(polarOutput);
+    if (polarAt != std::string::npos)
+    {
+        source.replace(polarAt, polarOutput.size(), R"(
+    // Preset angles use a positive Y axis toward the top of the image.
+    // Each half needs its own endpoint on the negative X axis.
+    float presetAngle = -rad_ang.y;
+    if (pos.y == 0.0 && pos.x < 0.0) {
+        presetAngle = milkdropWarpSeamAngle;
+    }
+    frag_TEXCOORD1 = vec2(rad_ang.x, presetAngle);
+)");
+        source.insert(source.find("out vec2 frag_TEXCOORD1;"), "uniform float milkdropWarpSeamAngle;\n");
+    }
     return source;
 }
 
