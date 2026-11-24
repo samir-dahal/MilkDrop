@@ -179,6 +179,58 @@ patch_projectm_copy(hlslparser vendor/hlslparser/src/HLSLParser.cpp
         if (String_Equal(function->name, name))]=]
 )
 
+# Legacy Direct3D expands small integer powers into multiplies and takes the
+# reciprocal for negative exponents. A helper evaluates the base once.
+patch_projectm_copy(hlslparser vendor/hlslparser/src/GLSLGenerator.cpp
+    [=[    if (m_tree->NeedsFunction("asin"))]=]
+    [=[    if (m_tree->NeedsFunction("pow"))
+    {
+        for (const char* type : {"float", "vec2", "vec3", "vec4"})
+        {
+            m_writer.WriteLine(0, "%s _milkdrop_integer_pow(%s x, int exponent) {", type, type);
+            m_writer.WriteLine(1, "%s value = %s(1.0);", type, type);
+            m_writer.WriteLine(1, "for (int n = abs(exponent); n > 0; n /= 2) {");
+            m_writer.WriteLine(2, "if (n %% 2 != 0) value *= x;");
+            m_writer.WriteLine(2, "x *= x;");
+            m_writer.WriteLine(1, "}");
+            m_writer.WriteLine(1, "return exponent < 0 ? 1.0 / value : value;");
+            m_writer.WriteLine(0, "}");
+        }
+    }
+
+    if (m_tree->NeedsFunction("asin"))]=]
+    [=[            if (argument[1]->nodeType == HLSLNodeType_LiteralExpression)
+            {
+                HLSLLiteralExpression* literalExpression = static_cast<HLSLLiteralExpression*>(argument[1]);]=]
+    [=[            auto* exponent = argument[1];
+            float exponentSign = 1.0f;
+            if (exponent->nodeType == HLSLNodeType_UnaryExpression)
+            {
+                auto* unary = static_cast<HLSLUnaryExpression*>(exponent);
+                if (unary->unaryOp == HLSLUnaryOp_Negative || unary->unaryOp == HLSLUnaryOp_Positive)
+                {
+                    exponentSign = unary->unaryOp == HLSLUnaryOp_Negative ? -1.0f : 1.0f;
+                    exponent = unary->expression;
+                }
+            }
+            if (exponent->nodeType == HLSLNodeType_LiteralExpression)
+            {
+                HLSLLiteralExpression* literalExpression = static_cast<HLSLLiteralExpression*>(exponent);]=]
+    [=[                // Replace the function call with just arg 1.]=]
+    [=[                value *= exponentSign;
+                // This contiguous range was verified with ps_2_0 and ps_3_0.
+                if (found && value >= -14.0f && value <= 16.0f &&
+                    value == static_cast<int>(value) && value != 1.0f)
+                {
+                    m_writer.Write("_milkdrop_integer_pow(");
+                    OutputExpression(argument[0], &functionCall->function->returnType);
+                    m_writer.Write(", %d)", static_cast<int>(value));
+                    handled = true;
+                }
+
+                // Replace the function call with just arg 1.]=]
+)
+
 # Disk textures need real mip levels and mip filtering for tex2Dlod focus blur.
 # Keep feedback/blur buffers on their existing single-level samplers.
 patch_projectm_copy(Renderer src/libprojectM/Renderer/Texture.hpp

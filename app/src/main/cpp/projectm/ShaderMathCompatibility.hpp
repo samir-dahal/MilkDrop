@@ -65,9 +65,19 @@ float _milkdrop_normalize(float x) { return x == 0 ? 0 : sign(x); }
         if (called) source = std::regex_replace(source, call, helper + "(");
         helpers += "float " + helper + "(float x" + (binary ? ", float y" : "") + ") {\n";
         std::string invalid = "isnan(x) || isinf(x)";
-        if (name == "asin" || name == "acos") invalid += " || abs(x) > 1.0";
         if (binary) invalid += " || isnan(y) || isinf(y) || (x == 0.0 && y == 0.0)";
         helpers += "    if (" + invalid + ") return 0.0;\n";
+        if (name == "asin" || name == "acos") {
+            // Direct3D's legacy shader uses rsq/rcp, which takes the magnitude
+            // of 1 - abs(x) and extends the approximation beyond [-1, 1].
+            helpers += R"(    if (abs(x) > 1.0) {
+        float a = abs(x);
+        float arc = (((-0.0187293 * a + 0.074261) * a - 0.2121144) * a + 1.5707288) * sqrt(a - 1.0);
+        arc = x < 0.0 ? 3.14159265 - arc : arc;
+)";
+            helpers += name == "asin" ? "        return 1.57079633 - arc;\n" : "        return arc;\n";
+            helpers += "    }\n";
+        }
         helpers += "    return " + name + (binary ? "(x,y);\n}\n" : "(x);\n}\n");
 
         for (int size = 2; size <= 4; ++size) {
