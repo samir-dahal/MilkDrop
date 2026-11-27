@@ -72,9 +72,9 @@ class AppSettings(context: Context) {
                 } else if (prefs.getInt(KEY_QUALITY_SCHEMA, 1) == 2) {
                     previousTiers[if (stored == 0) 0 else stored.coerceIn(1, 6) + 1]
                 } else when (stored.coerceIn(0, 2)) {
-                    0 -> QUALITY_VERY_HIGH
-                    1 -> QUALITY_MEDIUM
-                    else -> QUALITY_LOW
+                    0 -> QUALITY_ULTRA_HIGH // Original High used 100%.
+                    1 -> QUALITY_HIGH
+                    else -> QUALITY_MEDIUM
                 }
                 prefs.edit().putInt(KEY_QUALITY_INDEX, migrated)
                     .putInt(KEY_QUALITY_SCHEMA, QUALITY_SCHEMA_VERSION).apply()
@@ -161,9 +161,8 @@ class AppSettings(context: Context) {
         const val KEY_LAST_PRESET_PATH = "last_preset_path"
 
         const val QUALITY_AUTO = 0
-        const val QUALITY_LOW = 5
         const val QUALITY_MEDIUM = 6
-        const val QUALITY_VERY_HIGH = 10
+        const val QUALITY_HIGH = 9
         const val QUALITY_ULTRA_HIGH = 11
         const val QUALITY_SCHEMA_VERSION = 4
         const val MIN_MESH_SIZE = 8

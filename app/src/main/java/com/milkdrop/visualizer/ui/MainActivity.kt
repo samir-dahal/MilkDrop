@@ -141,7 +141,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingSearch = Runnable {}
     private var searchGeneration = 0
     private var fpsIndex = 0
-    private var qualityIndex = 0
+    private var qualityIndex = QUALITY_AUTO
     private var adaptiveQualityIndex = QUALITY_ULTRA_HIGH
     private var lowFpsSamples = 0
     private var highFpsSamples = 0
@@ -429,15 +429,14 @@ class MainActivity : AppCompatActivity() {
     private fun onMeasuredRenderFps(fps: Int) {
         if (qualityIndex != QUALITY_AUTO || fps <= 0 || isDestroyed) return
         val target = expectedRenderFps()
-        // Keep the requested 30–60 band whenever attainable. Lower intentional caps
-        // need a proportional band, otherwise normal capped rendering looks like lag.
-        val lowerBound = if (target >= 30) 30 else
+        // A capped 30 FPS stream can measure 29 FPS because of vsync and sampling jitter.
+        val lowerBound = if (target >= 30) minOf(30, target - 2) else
             (target * AUTO_QUALITY_DOWNGRADE_THRESHOLD).roundToInt()
         when {
             fps < lowerBound -> {
                 lowFpsSamples++
                 highFpsSamples = 0
-                if (lowFpsSamples >= AUTO_QUALITY_DOWNGRADE_SAMPLES && adaptiveQualityIndex > QUALITY_ULTRA_LOW) {
+                if (lowFpsSamples >= AUTO_QUALITY_DOWNGRADE_SAMPLES && adaptiveQualityIndex > QUALITY_AUTO_MIN) {
                     adaptiveQualityIndex--
                     lowFpsSamples = 0
                     surfaceView.setResolutionScale(QUALITY_SCALES[adaptiveQualityIndex])
@@ -1705,7 +1704,7 @@ class MainActivity : AppCompatActivity() {
 
         // Quality affects the output buffer only. Per-point warp mesh density remains user-controlled.
         const val QUALITY_AUTO = 0
-        const val QUALITY_ULTRA_LOW = 1
+        const val QUALITY_AUTO_MIN = 1 // The lowest actual resolution tier (10%).
         const val QUALITY_ULTRA_HIGH = 11
         val QUALITY_SCALES = floatArrayOf(1.0f, 0.10f, 0.15f, 0.25f, 0.35f, 0.40f, 0.50f, 0.65f, 0.70f, 0.75f, 0.85f, 1.0f)
         val QUALITY_NAME_IDS = intArrayOf(

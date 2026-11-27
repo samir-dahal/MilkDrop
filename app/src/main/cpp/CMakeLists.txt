@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(milkdropjni)
+set(ENABLE_SYSTEM_PROJECTM_EVAL OFF CACHE BOOL "" FORCE)
 
 # Build libprojectM (and projectm-playlist, same repo) from source as a
 # dynamically-linked shared library, per the project requirements — this
@@ -246,9 +247,30 @@ patch_projectm_source(Renderer src/libprojectM/Renderer/Shader.cpp
 }
 
 GLuint Shader::CompileShader(]=]
+    [=[const auto* shaderSourceCStr = source.c_str();]=]
+    [=[const auto* shaderSourceCStr = source.c_str();
+#ifdef USE_GLES
+    // A half-precision UV can round to the adjacent texel at phone resolutions.
+    // Keep full precision through built-in warp, feedback, and compositing passes.
+    std::string highPrecisionSource;
+    constexpr char mediumFloat[] = "precision mediump float;";
+    const auto firstLine = source.find('\n');
+    if (firstLine != std::string::npos)
+    {
+        const auto precision = source.find_first_not_of(" \t\r\n", firstLine + 1);
+        if (precision != std::string::npos &&
+            source.compare(precision, sizeof(mediumFloat) - 1, mediumFloat) == 0)
+        {
+            highPrecisionSource = source;
+            highPrecisionSource.replace(precision, sizeof(mediumFloat) - 1,
+                                        "precision highp float; precision highp sampler2D;");
+            shaderSourceCStr = highPrecisionSource.c_str();
+        }
+    }
+#endif]=]
     [=[glDeleteShader(shader);]=]
     [=[glDeleteShader(shader);
-    LogFailedShaderLines(source, message.data());]=]
+    LogFailedShaderLines(shaderSourceCStr, message.data());]=]
     [=[#include "Shader.hpp"]=]
     [=[#include "Shader.hpp"
 #include <android/log.h>
@@ -356,6 +378,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/PredefinedVariables.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/PresetRenderingCompatibility.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/FeedbackResize.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/ShapeBatching.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/projectm/BetaPresetFeatures.cmake)
 
 find_library(log-lib log)
 target_link_libraries(projectM PRIVATE ${log-lib})
