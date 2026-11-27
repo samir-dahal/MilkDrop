@@ -1181,8 +1181,26 @@ class MainActivity : AppCompatActivity() {
                 true
             } else false
         }
-        input.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId != EditorInfo.IME_ACTION_DONE) return@setOnEditorActionListener false
+        input.setOnEditorActionListener { _, actionId, event ->
+            val imeKey = event?.takeIf {
+                it.flags and (KeyEvent.FLAG_SOFT_KEYBOARD or KeyEvent.FLAG_EDITOR_ACTION) != 0
+            }
+            when {
+                imeKey != null -> {
+                    // A keyboard can send Enter as a key pair. Submit once, on release.
+                    if (imeKey.action != KeyEvent.ACTION_UP || imeKey.isCanceled) {
+                        return@setOnEditorActionListener true
+                    }
+                }
+                event != null && actionId != EditorInfo.IME_ACTION_DONE ->
+                    return@setOnEditorActionListener false
+                event == null && actionId != EditorInfo.IME_ACTION_DONE &&
+                    actionId != EditorInfo.IME_ACTION_GO && actionId != EditorInfo.IME_NULL ->
+                    return@setOnEditorActionListener false
+            }
+            if (event == null || imeKey != null) {
+                WindowCompat.getInsetsController(window, input).hide(WindowInsetsCompat.Type.ime())
+            }
             commit()
             input.clearFocus()
             true
