@@ -16,6 +16,7 @@ patch_projectm_source(Audio src/libprojectM/Audio/FrameAudioData.hpp
 #include "ShaderAudioData.hpp"]=]
     [=[    float bass{0.f};]=]
     [=[    milkdrop::ShaderAudioFrame shaderAudio;
+    float trebleMagnitude{};
     float bass{0.f};]=]
 )
 
@@ -82,7 +83,8 @@ patch_projectm_source(Audio src/libprojectM/Audio/PCM.cpp
     m_shaderAudioInput.Analyze(secondsSinceLastFrame, frame);]=]
     [=[    FrameAudioData data{};]=]
     [=[    FrameAudioData data{};
-    data.shaderAudio = m_shaderAudioInput.Frame();]=]
+    data.shaderAudio = m_shaderAudioInput.Frame();
+    data.trebleMagnitude = m_treble.CurrentMagnitude();]=]
 )
 
 # Match BeatDrop's smoothed timer for the six beat variables only. Shader FFT,

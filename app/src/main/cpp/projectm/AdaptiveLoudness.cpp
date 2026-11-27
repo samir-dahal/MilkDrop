@@ -24,6 +24,8 @@ void Loudness::Update(const std::array<float, SpectrumSamples>& spectrum, double
     for (int i = m_firstBin; i <= m_lastBin; ++i)
         if (std::isfinite(spectrum[i])) current += std::max(0.0f, spectrum[i]);
 
+    m_magnitude = static_cast<float>(current);
+
     // Average raw bands before division, as MilkDrop/BeatDrop does. RMS/flux
     // enhancement and soft ceilings change cross-band ratios used by presets.
     const double averageRate = std::pow(current > m_average ? 0.2 : 0.5, elapsed * 30.0);

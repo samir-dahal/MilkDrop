@@ -17,6 +17,7 @@ public:
     enum class Band : std::uint8_t { Bass = 0, Middles = 1, Treble = 2 };
     explicit Loudness(Band band);
     void Update(const std::array<float, SpectrumSamples>& spectrum, double elapsed, uint32_t frame);
+    auto CurrentMagnitude() const -> float { return m_magnitude; }
     auto CurrentRelative() const -> float { return m_relative; }
     auto AverageRelative() const -> float { return m_attenuated; }
 
@@ -25,6 +26,7 @@ private:
     int m_lastBin{};
     double m_average{};
     double m_longAverage{};
+    float m_magnitude{};
     float m_relative{};
     float m_attenuated{};
 };

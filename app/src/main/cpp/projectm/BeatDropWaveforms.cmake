@@ -42,6 +42,9 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/Waveform.cpp
             // For larger screens, e.g. 4K
             m_tempAlpha *= 0.44f;
         }]=] [=[]=]
+    [=[        m_tempAlpha *= std::pow(m_presetState.audioData.treb, 2.0f);]=]
+    [=[        // Mode 3 uses the instantaneous treble band sum for opacity.
+        m_tempAlpha *= std::pow(m_presetState.audioData.trebleMagnitude, 2.0f);]=]
     [=[    glVertexAttrib4f(1, waveR, waveG, waveB, m_tempAlpha);]=]
     [=[    glVertexAttrib4f(1, waveR, waveG, waveB, m_tempAlpha * m_waveformMath->OpacityMultiplier());]=]
 )
