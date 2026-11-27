@@ -2,7 +2,7 @@
 
 All notable changes to this app. Versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.2.0] - 2026-11-27
 
 ### Changed
 
@@ -44,6 +44,8 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 - Restore the previous sidebar visibility when Settings is dismissed, including
   outside taps in landscape, Close and Back.
 - Explain swipe controls in Settings and show the MilkDrop app version above engine FPS.
+- Refine Settings engine information, including compatibility patches, shape drawing
+  optimizations, measured FPS and the bundled upstream source.
 
 ### Fixed
 
@@ -52,16 +54,6 @@ All notable changes to this app. Versions follow [Semantic Versioning](https://s
 - Support integer output exponents in scalar and vector shader `frexp()` calls,
   fixing the dark fallback in Silicon Life (Devolution Mix).
 - Prevent taps on the preset-list background from toggling the sidebar.
-
-## [2.2.0] - 2026-11-10
-
-### Changed
-
-- Refine Settings engine information, including compatibility patches, shape drawing
-  optimizations, measured FPS and the bundled upstream source.
-
-### Fixed
-
 - Stream shape fills and source-over borders through shared geometry uploads while
   preserving each instance's fill/border order and all thick-outline passes; retain
   the existing batching path for shapes that start in additive mode.
