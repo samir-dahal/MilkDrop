@@ -35,7 +35,8 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerFrameContex
     PRJM_EVAL_F* y_wrap_mode{};
     PRJM_EVAL_F* x_echo_wrap{};
     PRJM_EVAL_F* y_echo_wrap{};
-    PRJM_EVAL_F* w_vars[8]{};]=]
+    PRJM_EVAL_F* w_vars[8]{};
+    unsigned localWaveVariables{};]=]
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerFrameContext.cpp
@@ -62,7 +63,8 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerFrameContex
     *y_wrap_mode = state.y_wrap_mode;
     *x_echo_wrap = state.x_echo_wrap;
     *y_echo_wrap = state.y_echo_wrap;
-    for (int i = 0; i < 8; ++i) *w_vars[i] = state.waveValues[i];]=]
+    for (int i = 0; i < 8; ++i)
+        if (!(localWaveVariables & (1u << i))) *w_vars[i] = state.waveValues[i];]=]
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelContext.hpp
@@ -71,7 +73,8 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelContex
     PRJM_EVAL_F* decay_r{};
     PRJM_EVAL_F* decay_g{};
     PRJM_EVAL_F* decay_b{};
-    PRJM_EVAL_F* w_vars[8]{};]=]
+    PRJM_EVAL_F* w_vars[8]{};
+    unsigned localWaveVariables{};]=]
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelContext.cpp
@@ -91,7 +94,7 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelContex
     [=[    for (int i = 0; i < 8; ++i)
     {
         state.frameWaveValues[i] = *perFrameState.w_vars[i];
-        *w_vars[i] = *perFrameState.w_vars[i];
+        if (!(localWaveVariables & (1u << i))) *w_vars[i] = state.frameWaveValues[i];
     }
 
     for (int q = 0; q < QVarCount; q++)
@@ -107,7 +110,8 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/ShapePerFrameC
     PRJM_EVAL_F* tex_cy{};
     PRJM_EVAL_F* x_wrap_mode{};
     PRJM_EVAL_F* y_wrap_mode{};
-    PRJM_EVAL_F* w_vars[8]{};]=]
+    PRJM_EVAL_F* w_vars[8]{};
+    unsigned localWaveVariables{};]=]
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/ShapePerFrameContext.cpp
@@ -130,16 +134,24 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/ShapePerFrameC
     *tex_cy = shape.m_tex_cy;
     *x_wrap_mode = shape.m_x_wrap_mode;
     *y_wrap_mode = shape.m_y_wrap_mode;
-    for (int i = 0; i < 8; ++i) *w_vars[i] = state.frameWaveValues[i];]=]
+    for (int i = 0; i < 8; ++i)
+        if (!(localWaveVariables & (1u << i))) *w_vars[i] = state.frameWaveValues[i];]=]
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/WaveformPerFrameContext.hpp
     [=[    PRJM_EVAL_F* q_vars[QVarCount]{};]=]
     [=[    PRJM_EVAL_F* q_vars[QVarCount]{};
-    PRJM_EVAL_F* w_vars[8]{};]=]
+    PRJM_EVAL_F* w_vars[8]{};
+    unsigned localWaveVariables{};]=]
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/WaveformPerFrameContext.cpp
+    [=[        *q_vars[q] = *presetPerFrameContext.q_vars[q];
+    }]=]
+    [=[        *q_vars[q] = *presetPerFrameContext.q_vars[q];
+    }
+    for (int i = 0; i < 8; ++i)
+        if (!(localWaveVariables & (1u << i))) *w_vars[i] = *presetPerFrameContext.w_vars[i];]=]
     [=[    REG_VAR(time);]=]
     [=[    REG_VAR(time);
     for (int i = 0; i < 8; ++i)
@@ -152,7 +164,8 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/WaveformPerFra
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/WaveformPerPointContext.hpp
     [=[    PRJM_EVAL_F* q_vars[QVarCount]{};]=]
     [=[    PRJM_EVAL_F* q_vars[QVarCount]{};
-    PRJM_EVAL_F* w_vars[8]{};]=]
+    PRJM_EVAL_F* w_vars[8]{};
+    unsigned localWaveVariables{};]=]
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/WaveformPerPointContext.cpp
@@ -190,18 +203,41 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.hp
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomShape.cpp
+    [=[#include "CustomShape.hpp"]=]
+    [=[#include "CustomShape.hpp"
+#include "LocalWaveVariables.hpp"]=]
+    [=[void CustomShape::CompileCodeAndRunInitExpressions()
+{]=]
+    [=[void CustomShape::CompileCodeAndRunInitExpressions()
+{
+    m_perFrameContext.localWaveVariables =
+        milkdrop::FindLocalWaveVariables(m_presetState.customShapeInitCode[m_index]) |
+        milkdrop::FindLocalWaveVariables(m_presetState.customShapePerFrameCode[m_index]);]=]
     [=[    m_enabled = parsedFile.GetBool(shapecodePrefix + "enabled", m_enabled);]=]
     [=[    m_enabled = parsedFile.GetBool(shapecodePrefix + "enabled", m_enabled);
     m_drawsInBackground = parsedFile.GetBool(shapecodePrefix + "bDrawBack", false);]=]
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomWaveform.cpp
-    [=[    m_perFrameContext.LoadStateVariables(m_presetState, presetPerFrameContext, *this);]=]
-    [=[    m_perFrameContext.LoadStateVariables(m_presetState, presetPerFrameContext, *this);
-    for (int i = 0; i < 8; ++i) *m_perFrameContext.w_vars[i] = *presetPerFrameContext.w_vars[i];]=]
-    [=[    m_perPointContext.LoadReadOnlyStateVariables(presetPerFrameContext);]=]
-    [=[    m_perPointContext.LoadReadOnlyStateVariables(presetPerFrameContext);
-    for (int i = 0; i < 8; ++i) *m_perPointContext.w_vars[i] = *m_perFrameContext.w_vars[i];]=]
+    [=[#include "CustomWaveform.hpp"]=]
+    [=[#include "CustomWaveform.hpp"
+#include "LocalWaveVariables.hpp"]=]
+    [=[void CustomWaveform::CompileCodeAndRunInitExpressions(const PerFrameContext& presetPerFrameContext)
+{]=]
+    [=[void CustomWaveform::CompileCodeAndRunInitExpressions(const PerFrameContext& presetPerFrameContext)
+{
+    m_perFrameContext.localWaveVariables =
+        milkdrop::FindLocalWaveVariables(m_presetState.customWaveInitCode[m_index]) |
+        milkdrop::FindLocalWaveVariables(m_presetState.customWavePerFrameCode[m_index]);
+    m_perPointContext.localWaveVariables =
+        milkdrop::FindLocalWaveVariables(m_presetState.customWavePerPointCode[m_index]);]=]
+    [=[void CustomWaveform::InitPerPointEvaluationVariables()
+{]=]
+    [=[void CustomWaveform::InitPerPointEvaluationVariables()
+{
+    for (int i = 0; i < 8; ++i)
+        if (!(m_perPointContext.localWaveVariables & (1u << i)))
+            *m_perPointContext.w_vars[i] = *m_perFrameContext.w_vars[i];]=]
     [=[    if (alignEdgeLine)
     {]=]
     [=[    if (m_index == 0)
@@ -214,6 +250,17 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/CustomWaveform
 )
 
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/MilkdropPreset.cpp
+    [=[#include "MilkdropPreset.hpp"]=]
+    [=[#include "MilkdropPreset.hpp"
+#include "LocalWaveVariables.hpp"]=]
+    [=[void MilkdropPreset::CompileCodeAndRunInitExpressions()
+{]=]
+    [=[void MilkdropPreset::CompileCodeAndRunInitExpressions()
+{
+    m_perFrameContext.localWaveVariables =
+        milkdrop::FindLocalWaveVariables(m_state.perFrameInitCode) |
+        milkdrop::FindLocalWaveVariables(m_state.perFrameCode);
+    m_perPixelContext.localWaveVariables = milkdrop::FindLocalWaveVariables(m_state.perPixelCode);]=]
     [=[    // y-flip the previous frame]=]
     [=[    for (auto& shape : m_customShapes)
     {
