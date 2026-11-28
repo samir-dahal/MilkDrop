@@ -302,13 +302,18 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.c
             {
                 const auto* channels = perPixelContext.perPixelCodeHandle ? &perPixelContext : nullptr;
                 const double scalar = *perFrameContext.decay;
-                const auto packed = [scalar](double channel) {
-                    return milkdrop::PackedLegacyDecay(channel == 0.0 ? scalar : channel);
+                const auto resolve = [scalar](double channel) {
+                    return channel == 0.0 ? scalar : channel;
                 };
+                const auto packed = milkdrop::PackLegacyDecay(
+                    resolve(channels ? *channels->decay_r : *perFrameContext.decay_r),
+                    resolve(channels ? *channels->decay_g : *perFrameContext.decay_g),
+                    resolve(channels ? *channels->decay_b : *perFrameContext.decay_b));
+                constexpr float byteScale = 1.0f / 255.0f;
                 m_decayBuffer[vertex] = Renderer::Color(
-                    packed(channels ? *channels->decay_r : *perFrameContext.decay_r),
-                    packed(channels ? *channels->decay_g : *perFrameContext.decay_g),
-                    packed(channels ? *channels->decay_b : *perFrameContext.decay_b),
+                    static_cast<float>((packed >> 16) & 255u) * byteScale,
+                    static_cast<float>((packed >> 8) & 255u) * byteScale,
+                    static_cast<float>(packed & 255u) * byteScale,
                     1.0f);
             }
 
@@ -322,8 +327,6 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.c
     if (!m_warpShader) m_decayBuffer.Update();]=]
     [=[milkdrop::CompatibleWarpVertexShader(staticShaders->GetPresetWarpVertexShader()),]=]
     [=[milkdrop::CompatibleWarpVertexShader(staticShaders->GetPresetWarpVertexShader(), true),]=]
-    [=[        perPixelMeshShader->SetUniformFloat("decay", milkdrop::PackedLegacyDecay(*perFrameContext.decay));]=]
-    [=[]=]
 )
 
 # Register a private evaluator intrinsic so presets can still use a variable named sound.

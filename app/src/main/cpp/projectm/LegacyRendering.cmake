@@ -361,5 +361,6 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.c
     [=[#include "PerPixelMesh.hpp"]=]
     [=[#include "PerPixelMesh.hpp"
 #include "LegacyDecay.hpp"]=]
-    [=[perPixelMeshShader->SetUniformFloat("decay", decay);]=]
-    [=[perPixelMeshShader->SetUniformFloat("decay", milkdrop::PackedLegacyDecay(*perFrameContext.decay));]=])
+    [=[        perPixelMeshShader->SetUniformFloat("decay", decay);]=]
+    [=[]=]
+)

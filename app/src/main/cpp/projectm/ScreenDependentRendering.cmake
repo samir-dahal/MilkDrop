@@ -102,10 +102,14 @@ patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/PerPixelMesh.c
     m_meshAspectY = aspectY;]=]
 )
 patch_projectm_copy(MilkdropPreset src/libprojectM/MilkdropPreset/FinalComposite.cpp
-    [=[    float const halfTexelWidth = 0.5f / static_cast<float>(presetState.renderContext.viewportSizeX);]=]
+    [=[    float const halfTexelWidth = 0.5f / static_cast<float>(presetState.renderContext.viewportSizeX);
+    float const halfTexelHeight = 0.5f / static_cast<float>(presetState.renderContext.viewportSizeY);]=]
     [=[    m_viewportWidth = presetState.renderContext.viewportSizeX;
     m_viewportHeight = presetState.renderContext.viewportSizeY;
     m_meshAspectX = presetState.renderContext.aspectX;
-    m_meshAspectY = presetState.renderContext.aspectY;
-    float const halfTexelWidth = 0.5f / static_cast<float>(presetState.renderContext.viewportSizeX);]=]
+    m_meshAspectY = presetState.renderContext.aspectY;]=]
+    [=[            uvs[vertexIndex] = {u + halfTexelWidth,
+                                v + halfTexelHeight};]=]
+    [=[            // GL fragment centers already land halfway into framebuffer texels.
+            uvs[vertexIndex] = {u, v};]=]
 )
